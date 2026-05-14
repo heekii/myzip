@@ -173,11 +173,26 @@
     let apartments = [];
 
     requireAuth(async (user) => {
+      if (!user) {
+        initSidebar();
+        showGuestBanner('게스트 모드입니다. 아파트를 등록하고 시세를 기록하려면 로그인이 필요해요.');
+        document.getElementById('welcomeMsg').textContent = '내집마련 트래커에 오신 걸 환영해요! 👋';
+        document.getElementById('headerUserName').textContent = '게스트';
+        document.getElementById('headerUserEmail').textContent = '';
+        document.getElementById('headerAvatar').textContent = '?';
+        document.getElementById('aptLoading').classList.add('hidden');
+        document.getElementById('aptEmpty').classList.remove('hidden');
+        document.getElementById('statTotal').textContent = '-';
+        document.getElementById('statThisMonth').textContent = '-';
+        document.getElementById('statNews').textContent = '-';
+        document.getElementById('statMemo').textContent = '-';
+        return;
+      }
       currentUser = user;
       initSidebar();
       renderUserInfo(user);
       await loadDashboard();
-    });
+    }, { allowGuest: true });
 
     function renderUserInfo(user) {
       const name = user.displayName || user.email.split('@')[0];

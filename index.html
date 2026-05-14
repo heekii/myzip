@@ -25,9 +25,9 @@
       <div id="authAlert" class="alert alert-error hidden"></div>
 
       <!-- 탭 -->
-      <div class="auth-tabs">
-        <div class="auth-tab active" data-tab="login">로그인</div>
-        <div class="auth-tab" data-tab="signup">회원가입</div>
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab active" data-tab="login" role="tab" aria-selected="true" aria-controls="loginForm">로그인</button>
+        <button type="button" class="auth-tab" data-tab="signup" role="tab" aria-selected="false" aria-controls="signupForm">회원가입</button>
       </div>
 
       <!-- 로그인 폼 -->
@@ -41,7 +41,10 @@
             <label class="form-label" style="margin-bottom:0">비밀번호</label>
             <a href="#" class="forgot-link" id="forgotBtn">비밀번호 찾기</a>
           </div>
-          <input type="password" id="loginPassword" class="form-input" placeholder="비밀번호 입력" autocomplete="current-password" required />
+          <div class="pw-wrap">
+            <input type="password" id="loginPassword" class="form-input" placeholder="비밀번호 입력" autocomplete="current-password" required style="padding-right:44px" />
+            <button type="button" class="pw-toggle" onclick="togglePw('loginPassword',this)" aria-label="비밀번호 표시">👁</button>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
           로그인
@@ -62,12 +65,19 @@
         </div>
         <div class="form-group">
           <label class="form-label">비밀번호</label>
-          <input type="password" id="signupPassword" class="form-input" placeholder="8자 이상, 영문+숫자+특수문자" autocomplete="new-password" required />
-          <div id="pwError" class="form-error hidden">비밀번호는 8자 이상, 영문·숫자·특수문자를 포함해야 합니다.</div>
+          <div class="pw-wrap">
+            <input type="password" id="signupPassword" class="form-input" placeholder="비밀번호 입력" autocomplete="new-password" required style="padding-right:44px" />
+            <button type="button" class="pw-toggle" onclick="togglePw('signupPassword',this)" aria-label="비밀번호 표시">👁</button>
+          </div>
+          <div id="pwError" class="form-error hidden">8자 이상, 영문·숫자·특수문자를 포함해야 합니다.</div>
+          <div class="form-hint">8자 이상 · 영문 · 숫자 · 특수문자(!@#$ 등) 포함</div>
         </div>
         <div class="form-group">
           <label class="form-label">비밀번호 확인</label>
-          <input type="password" id="signupPasswordConfirm" class="form-input" placeholder="비밀번호 재입력" autocomplete="new-password" required />
+          <div class="pw-wrap">
+            <input type="password" id="signupPasswordConfirm" class="form-input" placeholder="비밀번호 재입력" autocomplete="new-password" required style="padding-right:44px" />
+            <button type="button" class="pw-toggle" onclick="togglePw('signupPasswordConfirm',this)" aria-label="비밀번호 표시">👁</button>
+          </div>
           <div id="pwConfirmError" class="form-error hidden">비밀번호가 일치하지 않습니다.</div>
         </div>
         <button type="submit" class="btn btn-primary btn-full" id="signupBtn">
@@ -77,6 +87,11 @@
 
       <!-- 구분선 -->
       <div class="divider">또는</div>
+
+      <!-- 게스트 둘러보기 -->
+      <div class="auth-divider">
+        <p class="auth-guest-link">로그인 없이 <a href="dashboard.html?guest=1">둘러보기 →</a></p>
+      </div>
 
       <!-- 구글 로그인 -->
       <button type="button" class="btn btn-google btn-full" id="googleBtn">
@@ -123,13 +138,27 @@
     // 탭 전환
     document.querySelectorAll('.auth-tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.auth-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
         document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
         tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
         document.getElementById(tab.dataset.tab + 'Form').classList.add('active');
         clearAlert();
       });
     });
+
+    function togglePw(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.textContent = show ? '🙈' : '👁';
+      btn.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 표시');
+    }
+
+    // 회원가입 탭으로 직접 링크 (#signup)
+    if (location.hash === '#signup') {
+      document.querySelector('[data-tab="signup"]').click();
+    }
 
     function showAlert(msg) {
       const el = document.getElementById('authAlert');

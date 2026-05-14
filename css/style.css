@@ -18,7 +18,7 @@
 
   --text-primary: #0F172A;
   --text-secondary: #64748B;
-  --text-muted: #94A3B8;
+  --text-muted: #6B7280;
 
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
@@ -509,6 +509,30 @@ tbody tr:hover td { background: #FAFBFF; }
 .auth-form.active { display: block; }
 .forgot-link { font-size: 0.8rem; color: var(--primary); font-weight: 500; }
 .forgot-link:hover { text-decoration: underline; }
+.auth-divider { text-align: center; margin: 16px 0 0; }
+.auth-guest-link { font-size: 0.82rem; color: var(--text-muted); }
+.auth-guest-link a { color: var(--primary); font-weight: 600; }
+
+/* 비밀번호 토글 */
+.pw-wrap { position: relative; }
+.pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); padding: 4px; font-size: 1rem; line-height: 1; border-radius: 4px; }
+.pw-toggle:hover { color: var(--text-primary); }
+
+/* 게스트 배너 */
+.guest-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 20px; font-size: 0.85rem; color: #92400E;
+}
+
+/* 뒤로가기 버튼 (헤더 내) */
+.btn-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);
+  transition: all var(--transition);
+}
+.btn-back:hover { background: var(--bg); color: var(--text-primary); }
 
 /* ===========================
    BOTTOM NAV (mobile)

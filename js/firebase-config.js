@@ -151,12 +151,16 @@ function initTabs(containerSelector) {
 }
 
 // 인증 상태 확인 (보호된 페이지용)
-function requireAuth(callback) {
+// allowGuest: true 이면 ?guest=1 파라미터로 비로그인 접근 허용 (callback에 null 전달)
+function requireAuth(callback, { allowGuest = false } = {}) {
+  const isGuest = getParam('guest') === '1';
   auth.onAuthStateChanged(user => {
-    if (!user) {
-      window.location.href = 'index.html';
-    } else {
+    if (user) {
       callback(user);
+    } else if (allowGuest && isGuest) {
+      callback(null);
+    } else {
+      window.location.href = 'index.html';
     }
   });
 }
@@ -172,3 +176,26 @@ function getInitial(name, email) {
   if (email) return email.charAt(0).toUpperCase();
   return 'U';
 }
+
+// 게스트 배너 표시
+function showGuestBanner(msg = '게스트 모드입니다. 데이터는 저장되지 않아요.') {
+  const banner = document.createElement('div');
+  banner.id = 'guestBanner';
+  banner.className = 'guest-banner';
+  banner.innerHTML = `<span>👀 ${msg}</span><a href="index.html#signup" class="btn btn-primary btn-sm">회원가입</a>`;
+  document.querySelector('.page-content, .auth-page, main')?.prepend(banner);
+}
+
+// 장식성 이모지·아이콘 스크린리더 숨김, 버튼 레이블 보완
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-icon, .empty-icon, .stat-icon, .news-thumb').forEach(el => {
+    el.setAttribute('aria-hidden', 'true');
+  });
+  document.querySelectorAll('.hamburger').forEach(el => {
+    el.setAttribute('aria-label', '메뉴 열기');
+    el.setAttribute('aria-expanded', 'false');
+  });
+  document.querySelectorAll('.modal-close').forEach(el => {
+    if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', '닫기');
+  });
+});

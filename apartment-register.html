@@ -39,10 +39,8 @@
       <header class="top-header">
         <div class="header-left">
           <button type="button" class="hamburger" id="hamburger">☰</button>
+          <a href="dashboard.html" class="btn-back" aria-label="대시보드로 돌아가기">← 홈</a>
           <span class="header-title">아파트 등록</span>
-        </div>
-        <div class="header-right">
-          <a href="dashboard.html" class="btn btn-ghost btn-sm">← 대시보드</a>
         </div>
       </header>
 
@@ -244,6 +242,23 @@
     </nav>
   </div>
 
+  <!-- 게스트 로그인 유도 모달 -->
+  <div class="modal-overlay" id="guestModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">로그인이 필요해요</span>
+        <button type="button" class="modal-close" onclick="closeModal('guestModal')" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-secondary mb-4">아파트를 저장하려면 계정이 필요해요.<br>지금 가입하면 무료로 시세를 추적할 수 있어요!</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('guestModal')">계속 둘러보기</button>
+        <a href="index.html#signup" class="btn btn-primary">회원가입하기</a>
+      </div>
+    </div>
+  </div>
+
   <div class="loading-overlay" id="loadingOverlay">
     <div class="spinner"></div>
     <div class="loading-text">등록 중...</div>
@@ -256,7 +271,10 @@
     requireAuth(user => {
       currentUser = user;
       initSidebar();
-    });
+      if (!user) {
+        showGuestBanner('게스트 모드입니다. 작성은 가능하지만 저장하려면 로그인이 필요해요.');
+      }
+    }, { allowGuest: true });
 
     // Step 1 → Step 2
     document.getElementById('toStep2Btn').addEventListener('click', () => {
@@ -283,6 +301,10 @@
 
     // 등록 완료
     document.getElementById('registerBtn').addEventListener('click', async () => {
+      if (!currentUser) {
+        openModal('guestModal');
+        return;
+      }
       const name = document.getElementById('aptName').value.trim();
       const address = document.getElementById('aptAddress').value.trim();
       if (!name || !address) {
