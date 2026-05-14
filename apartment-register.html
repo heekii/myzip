@@ -232,7 +232,7 @@
         dropdown.querySelectorAll('.apt-suggest-item').forEach(el => {
           el.addEventListener('mousedown', () => selectApartment(el.dataset.name, el.dataset.address));
         });
-      }, { size: 15, category_group_code: 'AD5' });
+      }, { size: 15 });
     }
 
     function showPreview(name, address, meta) {
