@@ -84,7 +84,6 @@
         <div class="tabs">
           <button type="button" class="tab-btn active" data-tab="tabPrice">📈 시세 트래킹</button>
           <button type="button" class="tab-btn" data-tab="tabInfo">🏗️ 상세 정보</button>
-          <button type="button" class="tab-btn" data-tab="tabNews">📰 뉴스</button>
           <button type="button" class="tab-btn" data-tab="tabMemo">📝 메모</button>
         </div>
 
@@ -207,7 +206,13 @@
                   <div class="info-item"><div class="info-label">가장 가까운 역</div><div class="info-value" id="v_nearStation">-</div></div>
                   <div class="info-item"><div class="info-label">역까지 도보</div><div class="info-value" id="v_stationDist">-</div></div>
                   <div class="info-item"><div class="info-label">역세권 여부</div><div class="info-value" id="v_isStationZone">-</div></div>
-                  <div class="info-item"><div class="info-label">향/조망</div><div class="info-value" id="v_southFacing">-</div></div>
+                  <div class="info-item"><div class="info-label">채광/향</div><div class="info-value" id="v_southFacing">-</div></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🗺️ 업무지구 접근성</h4>
+                <div class="info-grid mb-4">
+                  <div class="info-item"><div class="info-label">강남역까지</div><div class="info-value" id="v_commuteGangnam">-</div></div>
+                  <div class="info-item"><div class="info-label">여의도역까지</div><div class="info-value" id="v_commuteYeouido">-</div></div>
+                  <div class="info-item" style="grid-column:span 2"><div class="info-label">광화문역까지</div><div class="info-value" id="v_commuteGwanghwamun">-</div></div>
                 </div>
                 <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
                 <div class="info-grid mb-4">
@@ -236,6 +241,12 @@
                   <div class="form-group"><label class="form-label">역세권 여부</label><select id="e_isStationZone" class="form-input"><option value="">선택</option><option value="yes">역세권</option><option value="no">비역세권</option></select></div>
                   <div class="form-group"><label class="form-label">향/조망</label><select id="e_southFacing" class="form-input"><option value="">선택</option><option value="south">남향</option><option value="south-east">남동향</option><option value="south-west">남서향</option><option value="east">동향</option><option value="west">서향</option><option value="north">북향</option></select></div>
                 </div>
+                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🗺️ 업무지구 접근성</h4>
+                <div class="form-row">
+                  <div class="form-group"><label class="form-label">강남역까지</label><input type="text" id="e_commuteGangnam" class="form-input" placeholder="예: 지하철 25분" /></div>
+                  <div class="form-group"><label class="form-label">여의도역까지</label><input type="text" id="e_commuteYeouido" class="form-input" placeholder="예: 지하철 15분" /></div>
+                </div>
+                <div class="form-group"><label class="form-label">광화문역까지</label><input type="text" id="e_commuteGwanghwamun" class="form-input" placeholder="예: 버스+지하철 30분" /></div>
                 <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
                 <div class="form-group"><label class="form-label">초등학교 배정</label><input type="text" id="e_schoolName" class="form-input" placeholder="예: 반포초등학교" /></div>
                 <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
@@ -257,51 +268,7 @@
           </div>
         </div>
 
-        <!-- ============ 탭3: 뉴스 ============ -->
-        <div class="tab-content" id="tabNews">
-          <!-- URL 업로드 -->
-          <div class="card mb-4">
-            <div class="card-header"><h3 class="card-title">뉴스 기사 저장</h3></div>
-            <div class="card-body">
-              <div class="form-group">
-                <label class="form-label">뉴스 URL</label>
-                <div class="flex gap-2">
-                  <input type="url" id="newsUrl" class="form-input flex-1" placeholder="https://news.example.com/article/..." />
-                  <button type="button" class="btn btn-secondary" id="fetchMetaBtn" style="white-space:nowrap">정보 가져오기</button>
-                </div>
-              </div>
-              <div id="newsPreview" class="hidden">
-                <div class="form-group">
-                  <label class="form-label">제목</label>
-                  <input type="text" id="newsTitle" class="form-input" placeholder="뉴스 제목" />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">요약</label>
-                  <textarea id="newsSummary" class="form-input" placeholder="뉴스 요약 내용" rows="3"></textarea>
-                </div>
-                <div class="flex justify-end">
-                  <button type="button" class="btn btn-primary" id="saveNewsBtn">뉴스 저장</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 뉴스 목록 -->
-          <div class="card">
-            <div class="card-header"><h3 class="card-title">저장된 뉴스</h3></div>
-            <div class="card-body">
-              <div id="newsList">
-                <div class="empty-state" style="padding:30px 0">
-                  <div class="empty-icon" style="font-size:2rem">📰</div>
-                  <div class="empty-title">저장된 뉴스가 없습니다</div>
-                  <div class="empty-desc">위에서 URL을 입력해 뉴스를 저장해보세요.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ============ 탭4: 메모 ============ -->
+        <!-- ============ 탭3: 메모 ============ -->
         <div class="tab-content" id="tabMemo">
           <!-- 메모 작성 -->
           <div class="card mb-4">
@@ -396,7 +363,7 @@
   let apartment = null;
   let allPrices = [];
   let memos = [];
-  let newsList = [];
+
   let priceChart = null;
   let memoSortOrder = 'desc';
 
@@ -421,7 +388,7 @@
       }
       apartment = { id: snap.id, ...snap.data() };
       renderHeader();
-      await Promise.all([loadPrices(), loadDetailInfo(), loadNews(), loadMemos()]);
+      await Promise.all([loadPrices(), loadDetailInfo(), loadMemos()]);
     } catch(e) { console.error(e); }
     finally { hideLoading(); }
   }
@@ -586,39 +553,14 @@
     document.getElementById('v_stationDist').textContent = detailInfo.stationDist ? `${detailInfo.stationDist}m` : '-';
     document.getElementById('v_isStationZone').textContent = detailInfo.isStationZone === 'yes' ? '역세권' : detailInfo.isStationZone === 'no' ? '비역세권' : '-';
     document.getElementById('v_southFacing').textContent = facingMap[detailInfo.southFacing] || '-';
+    document.getElementById('v_commuteGangnam').textContent = val('commuteGangnam');
+    document.getElementById('v_commuteYeouido').textContent = val('commuteYeouido');
+    document.getElementById('v_commuteGwanghwamun').textContent = val('commuteGwanghwamun');
     document.getElementById('v_schoolName').textContent = val('schoolName');
     document.getElementById('v_floorAreaRatio').textContent = detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-';
     document.getElementById('v_buildingCoverage').textContent = detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-';
     document.getElementById('v_targetSize').textContent = val('targetSize');
     document.getElementById('v_preferredFloor').textContent = val('preferredFloor');
-  }
-
-  // ── 뉴스 ──
-  async function loadNews() {
-    const snap = await db.collection('apartments').doc(aptId).collection('news')
-      .orderBy('createdAt', 'desc').get();
-    newsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderNewsList();
-  }
-
-  function renderNewsList() {
-    const container = document.getElementById('newsList');
-    if (newsList.length === 0) {
-      container.innerHTML = `<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:2rem">📰</div><div class="empty-title">저장된 뉴스가 없습니다</div><div class="empty-desc">위에서 URL을 입력해 뉴스를 저장해보세요.</div></div>`;
-      return;
-    }
-    container.innerHTML = newsList.map(n => `
-      <div class="news-item">
-        <div class="news-thumb">📰</div>
-        <div class="news-body flex-1">
-          <a href="${n.url || '#'}" target="_blank" rel="noopener" class="news-title">${n.title}</a>
-          ${n.summary ? `<p class="text-sm text-secondary mt-1" style="line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${n.summary}</p>` : ''}
-          <div class="news-meta"><span>${tsToDate(n.createdAt)}</span></div>
-        </div>
-        <div class="news-actions">
-          <button type="button" class="btn btn-danger btn-icon-sm" onclick="deleteNewsItem('${n.id}')" title="삭제">✕</button>
-        </div>
-      </div>`).join('');
   }
 
   // ── 메모 ──
@@ -801,7 +743,7 @@
       document.getElementById('editInfoBtn').classList.add('hidden');
       document.getElementById('cancelInfoBtn').classList.remove('hidden');
       // 기존 값 채우기
-      const fields = ['nearStation','stationDist','isStationZone','southFacing','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteGwanghwamun','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
       fields.forEach(k => { const el = document.getElementById('e_'+k); if (el) el.value = detailInfo[k] || ''; });
     });
     document.getElementById('cancelInfoBtn').addEventListener('click', () => {
@@ -811,7 +753,7 @@
       document.getElementById('cancelInfoBtn').classList.add('hidden');
     });
     document.getElementById('saveInfoBtn').addEventListener('click', async () => {
-      const fields = ['nearStation','stationDist','isStationZone','southFacing','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteGwanghwamun','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
       const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
       fields.forEach(k => { data[k] = document.getElementById('e_'+k)?.value.trim() || null; });
       await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(data, { merge: true });
@@ -819,48 +761,6 @@
       renderDetailView();
       document.getElementById('editInfoBtn').click(); // cancel edit mode
       showToast('상세 정보가 저장되었습니다.');
-    });
-
-    // 뉴스 URL 가져오기
-    document.getElementById('fetchMetaBtn').addEventListener('click', async () => {
-      const url = document.getElementById('newsUrl').value.trim();
-      if (!url) return showToast('URL을 입력해주세요.', 'error');
-      try { new URL(url); } catch { return showToast('올바른 URL 형식이 아닙니다.', 'error'); }
-      document.getElementById('newsTitle').value = '';
-      document.getElementById('newsSummary').value = '';
-      document.getElementById('newsPreview').classList.remove('hidden');
-
-      // Open Graph 메타 가져오기 (CORS 프록시 사용)
-      try {
-        const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(data.contents, 'text/html');
-          const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || doc.querySelector('title')?.textContent || '';
-          const ogDesc = doc.querySelector('meta[property="og:description"]')?.content || doc.querySelector('meta[name="description"]')?.content || '';
-          if (ogTitle) document.getElementById('newsTitle').value = ogTitle.trim();
-          if (ogDesc) document.getElementById('newsSummary').value = ogDesc.trim().substring(0, 300);
-        }
-      } catch(e) { /* 가져오기 실패시 직접 입력 */ }
-    });
-
-    // 뉴스 저장
-    document.getElementById('saveNewsBtn').addEventListener('click', async () => {
-      const url = document.getElementById('newsUrl').value.trim();
-      const title = document.getElementById('newsTitle').value.trim();
-      const summary = document.getElementById('newsSummary').value.trim();
-      if (!url || !title) return showToast('URL과 제목은 필수입니다.', 'error');
-      await db.collection('apartments').doc(aptId).collection('news').add({
-        url, title, summary,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      document.getElementById('newsUrl').value = '';
-      document.getElementById('newsTitle').value = '';
-      document.getElementById('newsSummary').value = '';
-      document.getElementById('newsPreview').classList.add('hidden');
-      showToast('뉴스가 저장되었습니다.');
-      await loadNews();
     });
 
     // 메모 글자 수
@@ -936,13 +836,6 @@
     await db.collection('apartments').doc(aptId).update({ priceCount: firebase.firestore.FieldValue.increment(-1) });
     showToast('삭제되었습니다.');
     await loadPrices();
-  }
-
-  async function deleteNewsItem(id) {
-    if (!confirm('이 뉴스를 삭제하시겠습니까?')) return;
-    await db.collection('apartments').doc(aptId).collection('news').doc(id).delete();
-    showToast('삭제되었습니다.');
-    await loadNews();
   }
 
   function startEditMemo(id) {

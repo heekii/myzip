@@ -46,186 +46,44 @@
       <main class="page-content" style="max-width:680px">
         <div class="page-header">
           <div>
-            <h1 class="page-title">관심 아파트 등록</h1>
-            <p class="page-subtitle">시세를 추적할 아파트 단지 정보를 입력해주세요.</p>
+            <h1 class="page-title">아파트 추가</h1>
+            <p class="page-subtitle">이름만 검색하면 끝이에요. 상세 정보는 나중에 채울 수 있어요.</p>
           </div>
         </div>
 
-        <!-- 단계 표시 -->
-        <div class="step-indicator">
-          <div class="step active" id="step1Indicator">
-            <div class="step-circle">1</div>
-            <div class="step-label">기본 정보</div>
-          </div>
-          <div class="step-line" id="stepLine1"></div>
-          <div class="step active" id="step2Indicator">
-            <div class="step-circle">2</div>
-            <div class="step-label">상세 정보</div>
-          </div>
-          <div class="step-line" id="stepLine2"></div>
-          <div class="step" id="step3Indicator">
-            <div class="step-circle">3</div>
-            <div class="step-label">등록 완료</div>
-          </div>
-        </div>
-
-        <div id="alertBox" class="alert alert-error hidden"></div>
-
-        <!-- Step 1: 기본 정보 -->
-        <div class="card" id="step1">
-          <div class="card-header"><h3 class="card-title">기본 정보 입력</h3></div>
+        <!-- 단일 등록 카드 -->
+        <div class="card" style="max-width:560px;margin:0 auto">
           <div class="card-body">
-            <div class="form-group" style="position:relative">
-              <label class="form-label">아파트 단지명 <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="aptName" class="form-input" placeholder="아파트 이름으로 검색..." maxlength="50" required autocomplete="off" />
-              <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% - 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:100;max-height:280px;overflow-y:auto"></div>
-              <div class="form-hint">이름을 입력하면 자동으로 검색돼요. 선택하면 주소·준공연도·세대수·층수·용적률이 자동 입력됩니다.</div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">주소 <span style="color:var(--danger)">*</span></label>
-              <div class="flex gap-2">
-                <input type="text" id="aptAddress" class="form-input" placeholder="주소 검색 버튼을 눌러주세요" readonly required style="background:var(--bg-card);cursor:pointer" onclick="searchAddress()" />
-                <button type="button" class="btn btn-secondary" onclick="searchAddress()" style="white-space:nowrap">🔍 검색</button>
-              </div>
-              <input type="hidden" id="aptLawdCd" />
-              <input type="hidden" id="aptSigungu" />
-            </div>
-            <div class="form-row">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">지역 (시/구)</label>
-                <input type="text" id="aptRegion" class="form-input" placeholder="주소 검색 시 자동 입력" readonly />
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">준공연도</label>
-                <input type="number" id="aptYear" class="form-input" placeholder="예: 2024" min="1970" max="2030" />
-              </div>
-            </div>
-            <div class="form-row mt-3">
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">총 세대 수</label>
-                <div class="input-addon">
-                  <input type="number" id="aptUnits" class="form-input" placeholder="예: 1680" min="1" />
-                  <span class="addon-text">세대</span>
-                </div>
-              </div>
-              <div class="form-group" style="margin-bottom:0">
-                <label class="form-label">최고 층수</label>
-                <div class="input-addon">
-                  <input type="number" id="aptMaxFloor" class="form-input" placeholder="예: 35" min="1" />
-                  <span class="addon-text">층</span>
-                </div>
-              </div>
-            </div>
-            <div class="flex justify-end mt-4">
-              <button type="button" class="btn btn-primary" id="toStep2Btn">다음 단계 →</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 2: 상세 정보 -->
-        <div class="card hidden" id="step2">
-          <div class="card-header"><h3 class="card-title">상세 정보 입력 <span class="text-xs text-muted font-medium">(선택 사항)</span></h3></div>
-          <div class="card-body">
-
-            <div class="alert alert-info">
-              💡 상세 정보는 나중에 아파트 상세 페이지에서도 입력·수정할 수 있습니다.
+            <!-- 아파트 검색 -->
+            <div class="form-group" style="position:relative;margin-bottom:12px">
+              <label class="form-label" for="aptName">아파트 단지명</label>
+              <input type="text" id="aptName" class="form-input" placeholder="예: 래미안원베일리" maxlength="50" autocomplete="off"
+                style="font-size:1rem;padding:14px 16px;border-radius:12px" />
+              <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1.5px solid var(--primary);border-radius:12px;box-shadow:0 8px 24px rgba(37,99,235,.12);z-index:100;max-height:320px;overflow-y:auto"></div>
+              <div class="form-hint" style="margin-top:6px">이름 입력 → 목록에서 선택하면 주소·세대수·준공연도가 자동 입력돼요</div>
             </div>
 
-            <!-- 교통 -->
-            <h4 class="font-semibold mb-3" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🚇 교통</h4>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">가장 가까운 역</label>
-                <input type="text" id="nearStation" class="form-input" placeholder="예: 신반포역 3호선" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">역까지 도보 거리</label>
-                <div class="input-addon">
-                  <input type="number" id="stationDist" class="form-input" placeholder="예: 350" min="0" />
-                  <span class="addon-text">m</span>
-                </div>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">역세권 여부</label>
-                <select id="isStationZone" class="form-input">
-                  <option value="">선택</option>
-                  <option value="yes">역세권 (500m 이내)</option>
-                  <option value="no">비역세권</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">조망/향 방향</label>
-                <select id="southFacing" class="form-input">
-                  <option value="">선택</option>
-                  <option value="south">남향</option>
-                  <option value="south-east">남동향</option>
-                  <option value="south-west">남서향</option>
-                  <option value="east">동향</option>
-                  <option value="west">서향</option>
-                  <option value="north">북향</option>
-                </select>
-              </div>
+            <!-- 자동입력 결과 (선택 후 표시) -->
+            <div id="aptPreview" style="display:none;background:var(--bg);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:0.875rem">
+              <div style="font-weight:700;margin-bottom:4px" id="previewName"></div>
+              <div style="color:var(--text-muted)" id="previewAddress"></div>
+              <div style="color:var(--text-muted);margin-top:4px;font-size:0.8rem" id="previewMeta"></div>
             </div>
 
-            <!-- 교육 -->
-            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🏫 교육</h4>
-            <div class="form-group">
-              <label class="form-label">초등학교 배정</label>
-              <input type="text" id="schoolName" class="form-input" placeholder="예: 반포초등학교 (배정 확정)" />
-            </div>
+            <input type="hidden" id="aptAddress" />
+            <input type="hidden" id="aptRegion" />
+            <input type="hidden" id="aptLawdCd" />
+            <input type="hidden" id="aptYear" />
+            <input type="hidden" id="aptUnits" />
+            <input type="hidden" id="aptMaxFloor" />
 
-            <!-- 건축 -->
-            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🏗️ 건축</h4>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">용적률</label>
-                <div class="input-addon">
-                  <input type="number" id="floorAreaRatio" class="form-input" placeholder="예: 269" min="0" max="1000" />
-                  <span class="addon-text">%</span>
-                </div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">건폐율</label>
-                <div class="input-addon">
-                  <input type="number" id="buildingCoverage" class="form-input" placeholder="예: 19" min="0" max="100" />
-                  <span class="addon-text">%</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 관심 정보 -->
-            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">⭐ 관심 타입</h4>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">관심 면적 (㎡)</label>
-                <input type="text" id="targetSize" class="form-input" placeholder="예: 59, 84" />
-                <div class="form-hint">콤마로 구분해 여러 면적 입력 가능</div>
-              </div>
-              <div class="form-group">
-                <label class="form-label">관심 로열동/층</label>
-                <input type="text" id="preferredFloor" class="form-input" placeholder="예: 20층 이상, 201동" />
-              </div>
-            </div>
-
-            <div class="flex gap-3 justify-between mt-4">
-              <button type="button" class="btn btn-secondary" id="backToStep1Btn">← 이전</button>
-              <button type="button" class="btn btn-primary" id="registerBtn">✅ 등록 완료</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 3: 완료 -->
-        <div class="card hidden" id="step3">
-          <div class="card-body text-center" style="padding: 48px 24px">
-            <div style="font-size:3.5rem;margin-bottom:16px">🎉</div>
-            <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:8px">등록이 완료되었습니다!</h2>
-            <p class="text-secondary text-sm mb-6" id="doneMsg">아파트를 성공적으로 등록했습니다.</p>
-            <div class="flex gap-3 justify-center">
-              <a href="dashboard.html" class="btn btn-secondary">대시보드로</a>
-              <a href="#" class="btn btn-primary" id="goDetailBtn">시세 입력하러 가기 →</a>
-            </div>
+            <button type="button" class="btn btn-primary btn-full" id="registerBtn"
+              style="padding:14px;font-size:1rem;border-radius:12px;margin-top:4px">
+              추가하기
+            </button>
+            <p class="text-center text-xs" style="color:var(--text-muted);margin-top:10px">
+              주소 자동검색이 안 되면 <button type="button" class="forgot-link" onclick="searchAddress()" style="font-size:inherit">주소 직접 검색</button>
+            </p>
           </div>
         </div>
 
@@ -275,56 +133,23 @@
       }
     }, { allowGuest: true });
 
-    // Step 1 → Step 2
-    document.getElementById('toStep2Btn').addEventListener('click', () => {
-      const name = document.getElementById('aptName').value.trim();
-      const address = document.getElementById('aptAddress').value.trim();
-      const alert = document.getElementById('alertBox');
-      if (!name || !address) {
-        alert.textContent = '아파트 단지명과 주소는 필수 입력 항목입니다.';
-        alert.classList.remove('hidden');
-        return;
-      }
-      alert.classList.add('hidden');
-      document.getElementById('step1').classList.add('hidden');
-      document.getElementById('step2').classList.remove('hidden');
-      document.getElementById('step2Indicator').classList.add('active');
-      document.getElementById('stepLine1').classList.add('done');
-    });
-
-    // Step 2 → Step 1
-    document.getElementById('backToStep1Btn').addEventListener('click', () => {
-      document.getElementById('step2').classList.add('hidden');
-      document.getElementById('step1').classList.remove('hidden');
-    });
-
-    // 등록 완료
+    // 등록
     document.getElementById('registerBtn').addEventListener('click', async () => {
-      if (!currentUser) {
-        openModal('guestModal');
-        return;
-      }
+      if (!currentUser) { openModal('guestModal'); return; }
       const name = document.getElementById('aptName').value.trim();
       const address = document.getElementById('aptAddress').value.trim();
-      if (!name || !address) {
-        showToast('기본 정보를 입력해주세요.', 'error');
-        return;
-      }
+      if (!name) { showToast('아파트 이름을 입력해주세요.', 'error'); return; }
+      if (!address) { showToast('목록에서 아파트를 선택하거나 주소를 직접 검색해주세요.', 'error'); return; }
 
       showLoading();
       try {
-        // 중복 확인
         const dup = await db.collection('apartments')
           .where('userId', '==', currentUser.uid)
           .where('name', '==', name)
           .get();
-        if (!dup.empty) {
-          hideLoading();
-          showToast('이미 등록된 아파트입니다.', 'error');
-          return;
-        }
+        if (!dup.empty) { hideLoading(); showToast('이미 등록된 아파트입니다.', 'error'); return; }
 
-        const data = {
+        const ref = await db.collection('apartments').add({
           userId: currentUser.uid,
           name,
           address,
@@ -335,33 +160,14 @@
           maxFloor: document.getElementById('aptMaxFloor').value || null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           priceCount: 0
-        };
+        });
 
-        const ref = await db.collection('apartments').add(data);
-        const newAptId = ref.id;
-
-        const detailData = {
-          nearStation: document.getElementById('nearStation').value.trim(),
-          stationDist: document.getElementById('stationDist').value || null,
-          isStationZone: document.getElementById('isStationZone').value,
-          southFacing: document.getElementById('southFacing').value,
-          schoolName: document.getElementById('schoolName').value.trim(),
-          floorAreaRatio: document.getElementById('floorAreaRatio').value || null,
-          buildingCoverage: document.getElementById('buildingCoverage').value || null,
-          targetSize: document.getElementById('targetSize').value.trim(),
-          preferredFloor: document.getElementById('preferredFloor').value.trim(),
+        await db.collection('apartments').doc(ref.id).collection('info').doc('detail').set({
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await db.collection('apartments').doc(newAptId).collection('info').doc('detail').set(detailData);
+        });
 
         hideLoading();
-        document.getElementById('step2').classList.add('hidden');
-        document.getElementById('step3').classList.remove('hidden');
-        document.getElementById('step3Indicator').classList.add('active');
-        document.getElementById('stepLine2').classList.add('done');
-        document.getElementById('doneMsg').textContent = `'${name}'이(가) 성공적으로 등록되었습니다.`;
-        document.getElementById('goDetailBtn').href = `apartment-detail.html?id=${newAptId}`;
-
+        window.location.href = `apartment-detail.html?id=${ref.id}`;
       } catch (err) {
         hideLoading();
         console.error(err);
@@ -370,6 +176,7 @@
     });
 
     const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974';
+    const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
     let nameSearchTimer = null;
 
     document.getElementById('aptName').addEventListener('input', function() {
@@ -411,13 +218,18 @@
       }
     }
 
-    const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
+    function showPreview(name, address, meta) {
+      document.getElementById('previewName').textContent = name;
+      document.getElementById('previewAddress').textContent = address;
+      document.getElementById('previewMeta').textContent = meta;
+      document.getElementById('aptPreview').style.display = 'block';
+    }
 
     async function selectApartment(name, address) {
       document.getElementById('aptName').value = name;
       document.getElementById('aptAddress').value = address;
       document.getElementById('aptNameDropdown').style.display = 'none';
-      setAutoFillLoading(true);
+      showPreview(name, address, '정보 불러오는 중...');
       try {
         const res = await fetch(
           `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
@@ -437,15 +249,7 @@
           }
         }
       } catch(e) { /* silent */ }
-      setAutoFillLoading(false);
-    }
-
-    function setAutoFillLoading(on) {
-      const ph = on ? '불러오는 중...' : '';
-      ['aptYear', 'aptUnits', 'aptMaxFloor'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el.value) el.placeholder = on ? '불러오는 중...' : (id === 'aptYear' ? '예: 2024' : id === 'aptUnits' ? '예: 1680' : '예: 35');
-      });
+      showPreview(name, address, '');
     }
 
     async function fetchAptDetailFromMOLIT(aptName, bCode) {
@@ -465,33 +269,39 @@
           return n === normName || n.includes(normName) || normName.includes(n);
         });
 
+        const metaParts = [];
         if (match) {
-          if (match.kaptd) document.getElementById('aptYear').value = String(match.kaptd).substring(0, 4);
-          if (match.kaptdaCnt) document.getElementById('aptUnits').value = match.kaptdaCnt;
-          if (match.kaptdaHoc) document.getElementById('aptMaxFloor').value = match.kaptdaHoc;
-
-          if (match.kaptCode) {
-            const detailRes = await fetch(
-              `https://apis.data.go.kr/1613000/AptListService2/getAptDetailList?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&kaptCode=${match.kaptCode}&_type=json`
-            );
-            const detailData = await detailRes.json();
-            const detail = detailData.response?.body?.items?.item;
-            if (detail) {
-              if (detail.kaptdaFar) document.getElementById('floorAreaRatio').value = Math.round(parseFloat(detail.kaptdaFar));
-              if (detail.kaptdaBfar) document.getElementById('buildingCoverage').value = Math.round(parseFloat(detail.kaptdaBfar));
-            }
+          if (match.kaptd) {
+            const year = String(match.kaptd).substring(0, 4);
+            document.getElementById('aptYear').value = year;
+            metaParts.push(`${year}년 준공`);
+          }
+          if (match.kaptdaCnt) {
+            document.getElementById('aptUnits').value = match.kaptdaCnt;
+            metaParts.push(`${Number(match.kaptdaCnt).toLocaleString()}세대`);
+          }
+          if (match.kaptdaHoc) {
+            document.getElementById('aptMaxFloor').value = match.kaptdaHoc;
+            metaParts.push(`최고 ${match.kaptdaHoc}층`);
           }
         }
-      } catch(e) { /* silent */ }
-      setAutoFillLoading(false);
+        const address = document.getElementById('aptAddress').value;
+        showPreview(aptName, address, metaParts.join(' · '));
+      } catch(e) {
+        const address = document.getElementById('aptAddress').value;
+        showPreview(aptName, address, '');
+      }
     }
 
     function searchAddress() {
       new daum.Postcode({
         oncomplete(data) {
-          document.getElementById('aptAddress').value = data.roadAddress || data.jibunAddress;
+          const address = data.roadAddress || data.jibunAddress;
+          document.getElementById('aptAddress').value = address;
           document.getElementById('aptRegion').value = `${data.sido} ${data.sigungu}`.trim();
           document.getElementById('aptLawdCd').value = data.sigunguCode;
+          const name = document.getElementById('aptName').value.trim();
+          showPreview(name || address, address, '');
         }
       }).open();
     }
