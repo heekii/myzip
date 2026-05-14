@@ -258,7 +258,7 @@
           const bCode = addr.b_code || '';
           if (bCode) {
             document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
-            await fetchAptDetailFromMOLIT(name, bCode);
+            await fetchAptDetailFromMOLIT(name, bCode.substring(0, 5));
             return;
           }
         }
@@ -266,41 +266,35 @@
       });
     }
 
-    async function fetchAptDetailFromMOLIT(aptName, bCode) {
-      const lawdCd = bCode.substring(0, 5);
-      try {
-        const res = await fetch(
-          `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&bjdongCode=${lawdCd}&numOfRows=100&_type=json`
-        );
-        const data = await res.json();
-        let items = data.response?.body?.items?.item || [];
-        if (!Array.isArray(items)) items = items ? [items] : [];
+    async function fetchAptDetailFromMOLIT(aptName, lawdCd) {
+      const norm = s => s.replace(/[\s()（）아파트]/g, '').toLowerCase();
+      const normName = norm(aptName);
+      const now = new Date();
 
-        const norm = s => s.replace(/[\s()（）]/g, '').toLowerCase();
-        const normName = norm(aptName);
-        const match = items.find(it => {
-          const n = norm(it.kaptName || '');
-          return n === normName || n.includes(normName) || normName.includes(n);
-        });
+      // 최근 6개월 병렬 호출 → 모아서 최고층 계산
+      const months = Array.from({length: 6}, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        return String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0');
+      });
 
+      const results = await Promise.all(months.map(ym =>
+        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=1000&_type=json`)
+          .then(r => r.json())
+          .then(data => {
+            let items = data.response?.body?.items?.item || [];
+            if (!Array.isArray(items)) items = items ? [items] : [];
+            return items.filter(it => { const n = norm(it.aptNm||''); return n===normName||n.includes(normName)||normName.includes(n); });
+          })
+          .catch(() => [])
+      ));
+
+      const allMatched = results.flat();
+      if (allMatched.length > 0) {
+        const buildYear = allMatched[0].buildYear;
         const metaParts = [];
-        if (match) {
-          if (match.kaptd) {
-            const year = String(match.kaptd).substring(0, 4);
-            document.getElementById('aptYear').value = year;
-            metaParts.push(`${year}년 준공`);
-          }
-          if (match.kaptdaCnt) {
-            document.getElementById('aptUnits').value = match.kaptdaCnt;
-            metaParts.push(`${Number(match.kaptdaCnt).toLocaleString()}세대`);
-          }
-          if (match.kaptdaHoc) {
-            document.getElementById('aptMaxFloor').value = match.kaptdaHoc;
-            metaParts.push(`최고 ${match.kaptdaHoc}층`);
-          }
-        }
+        if (buildYear) { document.getElementById('aptYear').value = buildYear; metaParts.push(`${buildYear}년 준공`); }
         showPreview(aptName, document.getElementById('aptAddress').value, metaParts.join(' · '));
-      } catch(e) {
+      } else {
         showPreview(aptName, document.getElementById('aptAddress').value, '');
       }
     }
