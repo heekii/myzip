@@ -594,6 +594,30 @@ tbody tr:hover td { background: #FAFBFF; }
 .flex-1 { flex: 1; min-width: 0; }
 
 /* ===========================
+   APARTMENT SEARCH DROPDOWN
+=========================== */
+.apt-suggest-item {
+  padding: 11px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s;
+}
+.apt-suggest-item:last-child { border-bottom: none; }
+.apt-suggest-item:hover, .apt-suggest-item:focus { background: #EFF6FF; outline: none; }
+.suggest-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+.suggest-addr {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ===========================
    RESPONSIVE
 =========================== */
 @media (max-width: 1024px) {

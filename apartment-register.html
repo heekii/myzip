@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=cc53b3da1664f19204dfe8ea42536825&libraries=services&autoload=false"></script>
 </head>
 <body>
   <div class="app-layout">
@@ -59,7 +60,7 @@
               <label class="form-label" for="aptName">아파트 단지명</label>
               <input type="text" id="aptName" class="form-input" placeholder="예: 래미안원베일리" maxlength="50" autocomplete="off"
                 style="font-size:1rem;padding:14px 16px;border-radius:12px" />
-              <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border:1.5px solid var(--primary);border-radius:12px;box-shadow:0 8px 24px rgba(37,99,235,.12);z-index:100;max-height:320px;overflow-y:auto"></div>
+              <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid var(--primary);border-radius:12px;box-shadow:0 8px 24px rgba(37,99,235,.15);z-index:100;max-height:360px;overflow-y:auto"></div>
               <div class="form-hint" style="margin-top:6px">이름 입력 → 목록에서 선택하면 주소·세대수·준공연도가 자동 입력돼요</div>
             </div>
 
@@ -123,14 +124,22 @@
 
   <script src="js/firebase-config.js"></script>
   <script>
+    const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
     let currentUser = null;
+    let ps = null;
+    let geocoder = null;
+    let nameSearchTimer = null;
+
+    // Kakao Maps SDK 초기화
+    kakao.maps.load(() => {
+      ps = new kakao.maps.services.Places();
+      geocoder = new kakao.maps.services.Geocoder();
+    });
 
     requireAuth(user => {
       currentUser = user;
       initSidebar();
-      if (!user) {
-        showGuestBanner('게스트 모드입니다. 작성은 가능하지만 저장하려면 로그인이 필요해요.');
-      }
+      if (!user) showGuestBanner('게스트 모드입니다. 작성은 가능하지만 저장하려면 로그인이 필요해요.');
     }, { allowGuest: true });
 
     // 등록
@@ -175,47 +184,54 @@
       }
     });
 
-    const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974';
-    const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
-    let nameSearchTimer = null;
-
+    // 검색 입력
     document.getElementById('aptName').addEventListener('input', function() {
       clearTimeout(nameSearchTimer);
       const q = this.value.trim();
       const dropdown = document.getElementById('aptNameDropdown');
       if (q.length < 2) { dropdown.style.display = 'none'; return; }
-      nameSearchTimer = setTimeout(() => searchApartmentName(q), 350);
+      nameSearchTimer = setTimeout(() => searchApartmentName(q), 300);
     });
 
     document.getElementById('aptName').addEventListener('blur', () => {
       setTimeout(() => { document.getElementById('aptNameDropdown').style.display = 'none'; }, 200);
     });
 
-    async function searchApartmentName(q) {
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function highlightText(text, query) {
+      const idx = text.toLowerCase().indexOf(query.toLowerCase());
+      if (idx === -1) return escHtml(text);
+      return escHtml(text.slice(0, idx)) +
+        `<mark style="background:none;color:var(--primary);font-weight:700">${escHtml(text.slice(idx, idx + query.length))}</mark>` +
+        escHtml(text.slice(idx + query.length));
+    }
+
+    function searchApartmentName(q) {
+      if (!ps) return;
       const dropdown = document.getElementById('aptNameDropdown');
-      try {
-        const res = await fetch(
-          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q + ' 아파트')}&size=15`,
-          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-        );
-        const data = await res.json();
-        const places = (data.documents || []).filter(p => p.category_name?.includes('아파트'));
+      ps.keywordSearch(q, (result, status) => {
+        if (status !== kakao.maps.services.Status.OK) { dropdown.style.display = 'none'; return; }
+        const places = result.filter(p => p.category_name?.includes('아파트'));
         if (!places.length) { dropdown.style.display = 'none'; return; }
-        dropdown.innerHTML = places.map(p => `
-          <div class="apt-suggest-item"
-            style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)"
-            data-name="${p.place_name.replace(/"/g, '&quot;')}"
-            data-address="${(p.road_address_name || p.address_name).replace(/"/g, '&quot;')}">
-            <div style="font-weight:500;font-size:14px">${p.place_name}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${p.road_address_name || p.address_name}</div>
-          </div>`).join('');
+
+        dropdown.innerHTML = places.map(p => {
+          const addr = p.road_address_name || p.address_name;
+          return `<div class="apt-suggest-item"
+            data-name="${escHtml(p.place_name)}"
+            data-address="${escHtml(addr)}">
+            <div class="suggest-name">${highlightText(p.place_name, q)}</div>
+            <div class="suggest-addr">${escHtml(addr)}</div>
+          </div>`;
+        }).join('');
+
         dropdown.querySelectorAll('.apt-suggest-item').forEach(el => {
           el.addEventListener('mousedown', () => selectApartment(el.dataset.name, el.dataset.address));
         });
         dropdown.style.display = 'block';
-      } catch(e) {
-        dropdown.style.display = 'none';
-      }
+      }, { size: 15, category_group_code: 'AD5' });
     }
 
     function showPreview(name, address, meta) {
@@ -225,31 +241,28 @@
       document.getElementById('aptPreview').style.display = 'block';
     }
 
-    async function selectApartment(name, address) {
+    function selectApartment(name, address) {
       document.getElementById('aptName').value = name;
       document.getElementById('aptAddress').value = address;
       document.getElementById('aptNameDropdown').style.display = 'none';
       showPreview(name, address, '정보 불러오는 중...');
-      try {
-        const res = await fetch(
-          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
-          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-        );
-        const data = await res.json();
-        const doc = data.documents?.[0];
-        if (doc?.address) {
-          const sido = doc.address.region_1depth_name || '';
-          const sigungu = doc.address.region_2depth_name || '';
+
+      if (!geocoder) { showPreview(name, address, ''); return; }
+      geocoder.addressSearch(address, async (result, status) => {
+        if (status === kakao.maps.services.Status.OK && result[0]?.address) {
+          const addr = result[0].address;
+          const sido = addr.region_1depth_name || '';
+          const sigungu = addr.region_2depth_name || '';
           document.getElementById('aptRegion').value = `${sido} ${sigungu}`.trim();
-          const bCode = doc.address.b_code || '';
+          const bCode = addr.b_code || '';
           if (bCode) {
             document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
             await fetchAptDetailFromMOLIT(name, bCode);
             return;
           }
         }
-      } catch(e) { /* silent */ }
-      showPreview(name, address, '');
+        showPreview(name, address, '');
+      });
     }
 
     async function fetchAptDetailFromMOLIT(aptName, bCode) {
@@ -285,11 +298,9 @@
             metaParts.push(`최고 ${match.kaptdaHoc}층`);
           }
         }
-        const address = document.getElementById('aptAddress').value;
-        showPreview(aptName, address, metaParts.join(' · '));
+        showPreview(aptName, document.getElementById('aptAddress').value, metaParts.join(' · '));
       } catch(e) {
-        const address = document.getElementById('aptAddress').value;
-        showPreview(aptName, address, '');
+        showPreview(aptName, document.getElementById('aptAddress').value, '');
       }
     }
 
@@ -300,8 +311,7 @@
           document.getElementById('aptAddress').value = address;
           document.getElementById('aptRegion').value = `${data.sido} ${data.sigungu}`.trim();
           document.getElementById('aptLawdCd').value = data.sigunguCode;
-          const name = document.getElementById('aptName').value.trim();
-          showPreview(name || address, address, '');
+          showPreview(document.getElementById('aptName').value.trim() || address, address, '');
         }
       }).open();
     }
