@@ -82,7 +82,7 @@
               <label class="form-label">아파트 단지명 <span style="color:var(--danger)">*</span></label>
               <input type="text" id="aptName" class="form-input" placeholder="아파트 이름으로 검색..." maxlength="50" required autocomplete="off" />
               <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% - 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:100;max-height:280px;overflow-y:auto"></div>
-              <div class="form-hint">이름을 입력하면 자동으로 검색돼요. 선택하면 주소도 자동 입력됩니다.</div>
+              <div class="form-hint">이름을 입력하면 자동으로 검색돼요. 선택하면 주소·준공연도·세대수·층수·용적률이 자동 입력됩니다.</div>
             </div>
             <div class="form-group">
               <label class="form-label">주소 <span style="color:var(--danger)">*</span></label>
@@ -390,10 +390,13 @@
       }
     }
 
+    const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
+
     async function selectApartment(name, address) {
       document.getElementById('aptName').value = name;
       document.getElementById('aptAddress').value = address;
       document.getElementById('aptNameDropdown').style.display = 'none';
+      setAutoFillLoading(true);
       try {
         const res = await fetch(
           `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
@@ -406,9 +409,60 @@
           const sigungu = doc.address.region_2depth_name || '';
           document.getElementById('aptRegion').value = `${sido} ${sigungu}`.trim();
           const bCode = doc.address.b_code || '';
-          if (bCode) document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
+          if (bCode) {
+            document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
+            await fetchAptDetailFromMOLIT(name, bCode);
+            return;
+          }
         }
-      } catch(e) { /* 주소 자동입력 실패 시 수동 검색으로 보완 */ }
+      } catch(e) { /* silent */ }
+      setAutoFillLoading(false);
+    }
+
+    function setAutoFillLoading(on) {
+      const ph = on ? '불러오는 중...' : '';
+      ['aptYear', 'aptUnits', 'aptMaxFloor'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el.value) el.placeholder = on ? '불러오는 중...' : (id === 'aptYear' ? '예: 2024' : id === 'aptUnits' ? '예: 1680' : '예: 35');
+      });
+    }
+
+    async function fetchAptDetailFromMOLIT(aptName, bCode) {
+      const lawdCd = bCode.substring(0, 5);
+      try {
+        const res = await fetch(
+          `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&bjdongCode=${lawdCd}&numOfRows=100&_type=json`
+        );
+        const data = await res.json();
+        let items = data.response?.body?.items?.item || [];
+        if (!Array.isArray(items)) items = items ? [items] : [];
+
+        const norm = s => s.replace(/[\s()（）]/g, '').toLowerCase();
+        const normName = norm(aptName);
+        const match = items.find(it => {
+          const n = norm(it.kaptName || '');
+          return n === normName || n.includes(normName) || normName.includes(n);
+        });
+
+        if (match) {
+          if (match.kaptd) document.getElementById('aptYear').value = String(match.kaptd).substring(0, 4);
+          if (match.kaptdaCnt) document.getElementById('aptUnits').value = match.kaptdaCnt;
+          if (match.kaptdaHoc) document.getElementById('aptMaxFloor').value = match.kaptdaHoc;
+
+          if (match.kaptCode) {
+            const detailRes = await fetch(
+              `https://apis.data.go.kr/1613000/AptListService2/getAptDetailList?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&kaptCode=${match.kaptCode}&_type=json`
+            );
+            const detailData = await detailRes.json();
+            const detail = detailData.response?.body?.items?.item;
+            if (detail) {
+              if (detail.kaptdaFar) document.getElementById('floorAreaRatio').value = Math.round(parseFloat(detail.kaptdaFar));
+              if (detail.kaptdaBfar) document.getElementById('buildingCoverage').value = Math.round(parseFloat(detail.kaptdaBfar));
+            }
+          }
+        }
+      } catch(e) { /* silent */ }
+      setAutoFillLoading(false);
     }
 
     function searchAddress() {
