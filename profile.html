@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>프로필 — 내집마련 트래커</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- 사이드바 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🏠</div>
+      <div>
+        <div class="logo-text">내집마련 트래커</div>
+        <div class="logo-sub">부동산 시세 추적 서비스</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">메뉴</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+      <a href="apartment-register.html" class="nav-item"><span class="nav-icon">➕</span> 아파트 등록</a>
+      <div class="nav-section-title" style="margin-top:12px">계정</div>
+      <a href="profile.html" class="nav-item active"><span class="nav-icon">👤</span> 프로필/설정</a>
+      <button class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+        <span class="nav-icon">🚪</span> 로그아웃
+      </button>
+    </nav>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <button class="hamburger" id="hamburger">☰</button>
+        <span class="header-title">프로필/설정</span>
+      </div>
+    </header>
+
+    <main class="page-content" style="max-width:680px">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">프로필 설정</h1>
+          <p class="page-subtitle">계정 정보를 확인하고 수정할 수 있습니다.</p>
+        </div>
+      </div>
+
+      <!-- 프로필 카드 -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="profile-avatar-section">
+            <div class="profile-avatar-lg" id="profileAvatar">?</div>
+            <div class="profile-name" id="profileName">-</div>
+            <div class="profile-email" id="profileEmail">-</div>
+            <div class="text-xs text-muted mt-1" id="profileJoined"></div>
+          </div>
+
+          <!-- 이름 수정 -->
+          <div style="border-top:1px solid var(--border);padding-top:20px">
+            <h3 class="section-title mb-4">기본 정보</h3>
+            <div id="profileAlert" class="hidden"></div>
+            <div class="form-group">
+              <label class="form-label">이름</label>
+              <input type="text" id="inputName" class="form-input" placeholder="이름을 입력하세요" maxlength="20" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">이메일</label>
+              <input type="email" id="inputEmail" class="form-input" disabled />
+              <div class="form-hint">이메일은 변경할 수 없습니다.</div>
+            </div>
+            <div class="flex justify-end">
+              <button class="btn btn-primary" id="saveProfileBtn">이름 저장</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 비밀번호 변경 -->
+      <div class="card mb-4" id="passwordCard">
+        <div class="card-header"><h3 class="card-title">비밀번호 변경</h3></div>
+        <div class="card-body">
+          <div id="pwAlert" class="hidden"></div>
+          <div class="form-group">
+            <label class="form-label">현재 비밀번호</label>
+            <input type="password" id="currentPw" class="form-input" placeholder="현재 비밀번호 입력" autocomplete="current-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 비밀번호</label>
+            <input type="password" id="newPw" class="form-input" placeholder="8자 이상, 영문+숫자+특수문자" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">새 비밀번호 확인</label>
+            <input type="password" id="newPwConfirm" class="form-input" placeholder="새 비밀번호 재입력" autocomplete="new-password" />
+          </div>
+          <div class="flex justify-end">
+            <button class="btn btn-primary" id="changePwBtn">비밀번호 변경</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 계정 관리 -->
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">계정 관리</h3></div>
+        <div class="card-body">
+          <!-- 로그아웃 -->
+          <div class="flex items-center justify-between" style="padding:14px 0;border-bottom:1px solid var(--border-light)">
+            <div>
+              <div class="font-semibold" style="font-size:0.9rem">로그아웃</div>
+              <div class="text-xs text-muted mt-1">현재 기기에서 로그아웃합니다.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="logoutBtn">로그아웃</button>
+          </div>
+
+          <!-- 계정 삭제 -->
+          <div class="flex items-center justify-between" style="padding:14px 0">
+            <div>
+              <div class="font-semibold text-danger" style="font-size:0.9rem">계정 삭제</div>
+              <div class="text-xs text-muted mt-1">계정과 모든 데이터가 영구적으로 삭제됩니다.</div>
+            </div>
+            <button class="btn btn-danger btn-sm" id="deleteAccountBtn">계정 삭제</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- 모바일 하단 내비 -->
+  <nav class="bottom-nav">
+    <ul class="bottom-nav-list">
+      <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+      <li><a href="apartment-register.html" class="bottom-nav-item"><span class="nav-icon">➕</span>등록</a></li>
+      <li><a href="profile.html" class="bottom-nav-item active"><span class="nav-icon">👤</span>프로필</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- 계정 삭제 확인 모달 -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" style="color:var(--danger)">⚠️ 계정 삭제</span>
+      <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="alert alert-error">
+        이 작업은 되돌릴 수 없습니다. 등록한 아파트, 시세, 뉴스, 메모 등 모든 데이터가 영구적으로 삭제됩니다.
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">확인을 위해 비밀번호를 입력해주세요</label>
+        <input type="password" id="deletePw" class="form-input" placeholder="현재 비밀번호" autocomplete="current-password" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('deleteModal')">취소</button>
+      <button class="btn btn-danger" id="confirmDeleteBtn">계정 영구 삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<script src="js/firebase-config.js"></script>
+<script>
+  let currentUser = null;
+
+  requireAuth(async user => {
+    currentUser = user;
+    initSidebar();
+    renderProfile(user);
+    // 소셜 로그인 계정은 비밀번호 변경 숨김
+    const isEmailProvider = user.providerData.some(p => p.providerId === 'password');
+    if (!isEmailProvider) {
+      document.getElementById('passwordCard').classList.add('hidden');
+    }
+  });
+
+  function renderProfile(user) {
+    const name = user.displayName || user.email.split('@')[0];
+    document.getElementById('profileAvatar').textContent = getInitial(user.displayName, user.email);
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('profileEmail').textContent = user.email;
+    document.getElementById('inputName').value = user.displayName || '';
+    document.getElementById('inputEmail').value = user.email;
+
+    // 가입일 (Firestore에서 가져오기)
+    db.collection('users').doc(user.uid).get().then(snap => {
+      if (snap.exists && snap.data().createdAt) {
+        document.getElementById('profileJoined').textContent = `가입일: ${tsToDate(snap.data().createdAt)}`;
+      }
+    }).catch(() => {});
+  }
+
+  function showPwAlert(msg, type='error') {
+    const el = document.getElementById('pwAlert');
+    el.className = `alert alert-${type}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3000);
+  }
+  function showProfileAlert(msg, type='success') {
+    const el = document.getElementById('profileAlert');
+    el.className = `alert alert-${type}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3000);
+  }
+
+  // 이름 저장
+  document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+    const name = document.getElementById('inputName').value.trim();
+    if (!name) return showProfileAlert('이름을 입력해주세요.', 'error');
+    const btn = document.getElementById('saveProfileBtn');
+    btn.disabled = true;
+    try {
+      await currentUser.updateProfile({ displayName: name });
+      await db.collection('users').doc(currentUser.uid).update({ name });
+      document.getElementById('profileName').textContent = name;
+      document.getElementById('profileAvatar').textContent = getInitial(name, currentUser.email);
+      showProfileAlert('이름이 저장되었습니다.');
+    } catch(e) {
+      showProfileAlert('저장에 실패했습니다.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // 비밀번호 변경
+  document.getElementById('changePwBtn').addEventListener('click', async () => {
+    const current = document.getElementById('currentPw').value;
+    const newPw = document.getElementById('newPw').value;
+    const confirm = document.getElementById('newPwConfirm').value;
+
+    if (!current || !newPw || !confirm) return showPwAlert('모든 항목을 입력해주세요.');
+    if (newPw.length < 8 || !/[a-zA-Z]/.test(newPw) || !/[0-9]/.test(newPw) || !/[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?]/.test(newPw)) {
+      return showPwAlert('새 비밀번호는 8자 이상, 영문·숫자·특수문자를 포함해야 합니다.');
+    }
+    if (newPw !== confirm) return showPwAlert('새 비밀번호가 일치하지 않습니다.');
+
+    const btn = document.getElementById('changePwBtn');
+    btn.disabled = true;
+    try {
+      // 재인증
+      const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
+      await currentUser.reauthenticateWithCredential(credential);
+      await currentUser.updatePassword(newPw);
+      document.getElementById('currentPw').value = '';
+      document.getElementById('newPw').value = '';
+      document.getElementById('newPwConfirm').value = '';
+      showPwAlert('비밀번호가 변경되었습니다.', 'success');
+    } catch(e) {
+      const msgs = {
+        'auth/wrong-password': '현재 비밀번호가 올바르지 않습니다.',
+        'auth/too-many-requests': '너무 많은 시도로 잠시 차단되었습니다.',
+        'auth/invalid-credential': '현재 비밀번호가 올바르지 않습니다.',
+      };
+      showPwAlert(msgs[e.code] || '비밀번호 변경에 실패했습니다.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // 로그아웃
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      await auth.signOut();
+      window.location.href = 'index.html';
+    }
+  });
+  document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      await auth.signOut();
+      window.location.href = 'index.html';
+    }
+  });
+
+  // 계정 삭제
+  document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+    document.getElementById('deletePw').value = '';
+    openModal('deleteModal');
+  });
+
+  document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+    const pw = document.getElementById('deletePw').value;
+    if (!pw) return showToast('비밀번호를 입력해주세요.', 'error');
+    showLoading();
+    try {
+      // 재인증
+      const isEmail = currentUser.providerData.some(p => p.providerId === 'password');
+      if (isEmail) {
+        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, pw);
+        await currentUser.reauthenticateWithCredential(credential);
+      }
+
+      // 모든 데이터 삭제
+      const apts = await db.collection('apartments').where('userId', '==', currentUser.uid).get();
+      for (const apt of apts.docs) {
+        for (const col of ['prices','news','memos','info']) {
+          const sub = await apt.ref.collection(col).get();
+          for (const d of sub.docs) await d.ref.delete();
+        }
+        await apt.ref.delete();
+      }
+      await db.collection('users').doc(currentUser.uid).delete();
+      await currentUser.delete();
+      hideLoading();
+      window.location.href = 'index.html';
+    } catch(e) {
+      hideLoading();
+      closeModal('deleteModal');
+      const msgs = {
+        'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
+        'auth/invalid-credential': '비밀번호가 올바르지 않습니다.',
+        'auth/requires-recent-login': '보안을 위해 재로그인 후 다시 시도해주세요.',
+      };
+      showToast(msgs[e.code] || '계정 삭제에 실패했습니다.', 'error');
+    }
+  });
+</script>
+</body>
+</html>

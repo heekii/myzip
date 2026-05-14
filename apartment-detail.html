@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>아파트 상세 — 내집마련 트래커</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- 사이드바 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🏠</div>
+      <div>
+        <div class="logo-text">내집마련 트래커</div>
+        <div class="logo-sub">부동산 시세 추적 서비스</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">메뉴</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+      <a href="apartment-register.html" class="nav-item"><span class="nav-icon">➕</span> 아파트 등록</a>
+      <div class="nav-section-title" style="margin-top:12px">계정</div>
+      <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
+      <button class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+        <span class="nav-icon">🚪</span> 로그아웃
+      </button>
+    </nav>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <button class="hamburger" id="hamburger">☰</button>
+        <a href="dashboard.html" class="btn btn-ghost btn-sm" style="font-size:1rem">←</a>
+        <span class="header-title" id="headerAptName">아파트 상세</span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-danger btn-sm" id="deleteAptBtn">삭제</button>
+      </div>
+    </header>
+
+    <main class="page-content">
+
+      <!-- 아파트 헤더 -->
+      <div class="apt-detail-header">
+        <div class="flex justify-between items-start">
+          <div>
+            <div class="apt-detail-name" id="detailName">로딩 중...</div>
+            <div class="apt-detail-address" id="detailAddress"></div>
+          </div>
+        </div>
+        <div class="apt-detail-chips" id="detailChips"></div>
+      </div>
+
+      <!-- 시세 요약 바 -->
+      <div class="price-summary-bar" id="priceSummaryBar">
+        <div class="price-summary-item">
+          <div class="price-summary-label">최근 최고가</div>
+          <div class="price-summary-value" id="summaryMax">-</div>
+        </div>
+        <div class="price-summary-item">
+          <div class="price-summary-label">최근 최저가</div>
+          <div class="price-summary-value" id="summaryMin">-</div>
+        </div>
+        <div class="price-summary-item">
+          <div class="price-summary-label">기록 건수</div>
+          <div class="price-summary-value neutral" id="summaryCount">0건</div>
+        </div>
+        <div class="price-summary-item">
+          <div class="price-summary-label">최근 변동</div>
+          <div class="price-summary-value" id="summaryChange">-</div>
+        </div>
+      </div>
+
+      <!-- 탭 -->
+      <div id="mainTabs">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="tabPrice">📈 시세 트래킹</button>
+          <button class="tab-btn" data-tab="tabInfo">🏗️ 상세 정보</button>
+          <button class="tab-btn" data-tab="tabNews">📰 뉴스</button>
+          <button class="tab-btn" data-tab="tabMemo">📝 메모</button>
+        </div>
+
+        <!-- ============ 탭1: 시세 트래킹 ============ -->
+        <div class="tab-content active" id="tabPrice">
+
+          <!-- 시세 입력 -->
+          <div class="card mb-4">
+            <div class="card-header">
+              <h3 class="card-title">시세 입력</h3>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">날짜</label>
+                  <input type="date" id="priceDate" class="form-input" />
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">최고 호가</label>
+                  <div class="input-addon">
+                    <input type="number" id="priceMax" class="form-input" placeholder="예: 85000" min="0" />
+                    <span class="addon-text">만원</span>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label class="form-label">최저 호가</label>
+                  <div class="input-addon">
+                    <input type="number" id="priceMin" class="form-input" placeholder="예: 80000" min="0" />
+                    <span class="addon-text">만원</span>
+                  </div>
+                </div>
+              </div>
+              <div class="form-hint mt-2">💡 호가(매도 호가) 기준으로 입력해주세요. 단위: 만원 (예: 8억5천만원 → 85000)</div>
+              <div class="flex justify-end mt-3">
+                <button class="btn btn-primary" id="savePriceBtn">저장</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 그래프 -->
+          <div class="card mb-4">
+            <div class="card-header">
+              <h3 class="card-title">시세 추이 그래프</h3>
+              <div class="period-btns">
+                <button class="period-btn active" data-period="3">3개월</button>
+                <button class="period-btn" data-period="6">6개월</button>
+                <button class="period-btn" data-period="12">1년</button>
+                <button class="period-btn" data-period="0">전체</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="chartEmpty" class="empty-state hidden" style="padding:30px 0">
+                <div class="empty-icon" style="font-size:2rem">📊</div>
+                <div class="empty-title">시세 데이터가 없습니다</div>
+                <div class="empty-desc">위에서 시세를 입력하면 그래프가 나타납니다.</div>
+              </div>
+              <div class="chart-container" id="chartWrapper">
+                <canvas id="priceChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- 데이터 목록 -->
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">입력 내역</h3>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div id="priceTableWrapper" class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>날짜</th>
+                      <th>최고 호가</th>
+                      <th>최저 호가</th>
+                      <th style="width:100px">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody id="priceTableBody">
+                    <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">입력된 시세 데이터가 없습니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ 탭2: 상세 정보 ============ -->
+        <div class="tab-content" id="tabInfo">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">단지 상세 정보</h3>
+              <div>
+                <button class="btn btn-secondary btn-sm hidden" id="cancelInfoBtn">취소</button>
+                <button class="btn btn-primary btn-sm" id="editInfoBtn">수정</button>
+              </div>
+            </div>
+            <div class="card-body">
+
+              <!-- 보기 모드 -->
+              <div id="infoViewMode">
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🚇 교통</h4>
+                <div class="info-grid mb-4">
+                  <div class="info-item"><div class="info-label">가장 가까운 역</div><div class="info-value" id="v_nearStation">-</div></div>
+                  <div class="info-item"><div class="info-label">역까지 도보</div><div class="info-value" id="v_stationDist">-</div></div>
+                  <div class="info-item"><div class="info-label">역세권 여부</div><div class="info-value" id="v_isStationZone">-</div></div>
+                  <div class="info-item"><div class="info-label">향/조망</div><div class="info-value" id="v_southFacing">-</div></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
+                <div class="info-grid mb-4">
+                  <div class="info-item" style="grid-column:span 2"><div class="info-label">초등학교 배정</div><div class="info-value" id="v_schoolName">-</div></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
+                <div class="info-grid mb-4">
+                  <div class="info-item"><div class="info-label">용적률</div><div class="info-value" id="v_floorAreaRatio">-</div></div>
+                  <div class="info-item"><div class="info-label">건폐율</div><div class="info-value" id="v_buildingCoverage">-</div></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">⭐ 관심 타입</h4>
+                <div class="info-grid">
+                  <div class="info-item"><div class="info-label">관심 면적</div><div class="info-value" id="v_targetSize">-</div></div>
+                  <div class="info-item"><div class="info-label">관심 동/층</div><div class="info-value" id="v_preferredFloor">-</div></div>
+                </div>
+              </div>
+
+              <!-- 수정 모드 -->
+              <div id="infoEditMode" class="hidden">
+                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🚇 교통</h4>
+                <div class="form-row">
+                  <div class="form-group"><label class="form-label">가장 가까운 역</label><input type="text" id="e_nearStation" class="form-input" placeholder="예: 신반포역 3호선" /></div>
+                  <div class="form-group"><label class="form-label">역까지 도보 거리(m)</label><input type="number" id="e_stationDist" class="form-input" placeholder="예: 350" /></div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group"><label class="form-label">역세권 여부</label><select id="e_isStationZone" class="form-input"><option value="">선택</option><option value="yes">역세권</option><option value="no">비역세권</option></select></div>
+                  <div class="form-group"><label class="form-label">향/조망</label><select id="e_southFacing" class="form-input"><option value="">선택</option><option value="south">남향</option><option value="south-east">남동향</option><option value="south-west">남서향</option><option value="east">동향</option><option value="west">서향</option><option value="north">북향</option></select></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
+                <div class="form-group"><label class="form-label">초등학교 배정</label><input type="text" id="e_schoolName" class="form-input" placeholder="예: 반포초등학교" /></div>
+                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
+                <div class="form-row">
+                  <div class="form-group"><label class="form-label">용적률(%)</label><input type="number" id="e_floorAreaRatio" class="form-input" placeholder="예: 269" /></div>
+                  <div class="form-group"><label class="form-label">건폐율(%)</label><input type="number" id="e_buildingCoverage" class="form-input" placeholder="예: 19" /></div>
+                </div>
+                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">⭐ 관심 타입</h4>
+                <div class="form-row">
+                  <div class="form-group"><label class="form-label">관심 면적(㎡)</label><input type="text" id="e_targetSize" class="form-input" placeholder="예: 59, 84" /></div>
+                  <div class="form-group"><label class="form-label">관심 동/층</label><input type="text" id="e_preferredFloor" class="form-input" placeholder="예: 20층 이상" /></div>
+                </div>
+                <div class="flex justify-end mt-4">
+                  <button class="btn btn-primary" id="saveInfoBtn">저장</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ 탭3: 뉴스 ============ -->
+        <div class="tab-content" id="tabNews">
+          <!-- URL 업로드 -->
+          <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">뉴스 기사 저장</h3></div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">뉴스 URL</label>
+                <div class="flex gap-2">
+                  <input type="url" id="newsUrl" class="form-input flex-1" placeholder="https://news.example.com/article/..." />
+                  <button class="btn btn-secondary" id="fetchMetaBtn" style="white-space:nowrap">정보 가져오기</button>
+                </div>
+              </div>
+              <div id="newsPreview" class="hidden">
+                <div class="form-group">
+                  <label class="form-label">제목</label>
+                  <input type="text" id="newsTitle" class="form-input" placeholder="뉴스 제목" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">요약</label>
+                  <textarea id="newsSummary" class="form-input" placeholder="뉴스 요약 내용" rows="3"></textarea>
+                </div>
+                <div class="flex justify-end">
+                  <button class="btn btn-primary" id="saveNewsBtn">뉴스 저장</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 뉴스 목록 -->
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">저장된 뉴스</h3></div>
+            <div class="card-body">
+              <div id="newsList">
+                <div class="empty-state" style="padding:30px 0">
+                  <div class="empty-icon" style="font-size:2rem">📰</div>
+                  <div class="empty-title">저장된 뉴스가 없습니다</div>
+                  <div class="empty-desc">위에서 URL을 입력해 뉴스를 저장해보세요.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ 탭4: 메모 ============ -->
+        <div class="tab-content" id="tabMemo">
+          <!-- 메모 작성 -->
+          <div class="card mb-4">
+            <div class="card-header"><h3 class="card-title">메모 작성</h3></div>
+            <div class="card-body">
+              <div class="form-group" style="margin-bottom:8px">
+                <textarea id="memoInput" class="form-input" rows="4"
+                  placeholder="이 아파트에 대한 개인 메모를 자유롭게 작성하세요.&#10;예: 1층 커뮤니티 시설 우수, 주차 공간 협소, 인근 재개발 예정 등"
+                  maxlength="5000"></textarea>
+                <div class="flex justify-between items-center mt-1">
+                  <div class="form-hint" id="memoCount">0/5000자</div>
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <button class="btn btn-primary" id="saveMemoBtn">메모 저장</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 메모 목록 -->
+          <div>
+            <div class="section-header">
+              <h3 class="section-title">메모 목록</h3>
+              <div class="flex gap-2">
+                <button class="btn btn-secondary btn-sm sort-memo-btn active" data-sort="desc">최신순</button>
+                <button class="btn btn-secondary btn-sm sort-memo-btn" data-sort="asc">오래된순</button>
+              </div>
+            </div>
+            <div id="memoList">
+              <div class="empty-state" style="padding:30px 0">
+                <div class="empty-icon" style="font-size:2rem">📝</div>
+                <div class="empty-title">작성된 메모가 없습니다</div>
+                <div class="empty-desc">위에서 메모를 작성해보세요.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- end mainTabs -->
+    </main>
+  </div>
+
+  <!-- 모바일 하단 내비 -->
+  <nav class="bottom-nav">
+    <ul class="bottom-nav-list">
+      <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+      <li><a href="apartment-register.html" class="bottom-nav-item"><span class="nav-icon">➕</span>등록</a></li>
+      <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- 시세 수정 모달 -->
+<div class="modal-overlay" id="editPriceModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">시세 수정</span>
+      <button class="modal-close" onclick="closeModal('editPriceModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editPriceId" />
+      <div class="form-group">
+        <label class="form-label">날짜</label>
+        <input type="date" id="editPriceDate" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">최고 호가 (만원)</label>
+        <input type="number" id="editPriceMax" class="form-input" />
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">최저 호가 (만원)</label>
+        <input type="number" id="editPriceMin" class="form-input" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editPriceModal')">취소</button>
+      <button class="btn btn-primary" id="updatePriceBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<script src="js/firebase-config.js"></script>
+<script>
+  const aptId = getParam('id');
+  let currentUser = null;
+  let apartment = null;
+  let allPrices = [];
+  let memos = [];
+  let newsList = [];
+  let priceChart = null;
+  let memoSortOrder = 'desc';
+
+  if (!aptId) window.location.href = 'dashboard.html';
+
+  requireAuth(async user => {
+    currentUser = user;
+    initSidebar();
+    initTabs('#mainTabs');
+    await loadApartment();
+    setupListeners();
+  });
+
+  // ── 아파트 기본 정보 로드 ──
+  async function loadApartment() {
+    showLoading();
+    try {
+      const snap = await db.collection('apartments').doc(aptId).get();
+      if (!snap.exists || snap.data().userId !== currentUser.uid) {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      apartment = { id: snap.id, ...snap.data() };
+      renderHeader();
+      await Promise.all([loadPrices(), loadDetailInfo(), loadNews(), loadMemos()]);
+    } catch(e) { console.error(e); }
+    finally { hideLoading(); }
+  }
+
+  function renderHeader() {
+    document.title = `${apartment.name} — 내집마련 트래커`;
+    document.getElementById('headerAptName').textContent = apartment.name;
+    document.getElementById('detailName').textContent = apartment.name;
+    document.getElementById('detailAddress').textContent = apartment.address || '';
+    const chips = [];
+    if (apartment.completionYear) chips.push(`${apartment.completionYear}년 준공`);
+    if (apartment.totalUnits) chips.push(`${Number(apartment.totalUnits).toLocaleString()}세대`);
+    if (apartment.maxFloor) chips.push(`최고 ${apartment.maxFloor}층`);
+    document.getElementById('detailChips').innerHTML = chips.map(c => `<span class="apt-chip">${c}</span>`).join('');
+    document.getElementById('priceDate').value = new Date().toISOString().split('T')[0];
+  }
+
+  // ── 시세 ──
+  async function loadPrices(period) {
+    const snap = await db.collection('apartments').doc(aptId).collection('prices')
+      .orderBy('date', 'asc').get();
+    allPrices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderPriceSummary();
+    renderPriceTable();
+    renderChart(period || '3');
+  }
+
+  function renderPriceSummary() {
+    if (allPrices.length === 0) {
+      ['summaryMax','summaryMin','summaryCount','summaryChange'].forEach(id => document.getElementById(id).textContent = '-');
+      document.getElementById('summaryCount').textContent = '0건';
+      return;
+    }
+    const latest = allPrices[allPrices.length - 1];
+    const prev = allPrices.length > 1 ? allPrices[allPrices.length - 2] : null;
+    document.getElementById('summaryMax').textContent = formatPrice(latest.maxPrice);
+    document.getElementById('summaryMin').textContent = formatPrice(latest.minPrice);
+    document.getElementById('summaryCount').textContent = `${allPrices.length}건`;
+
+    if (prev && latest.maxPrice && prev.maxPrice) {
+      const diff = latest.maxPrice - prev.maxPrice;
+      const el = document.getElementById('summaryChange');
+      if (diff > 0) { el.textContent = `▲ ${formatPrice(diff)}`; el.className = 'price-summary-value up'; }
+      else if (diff < 0) { el.textContent = `▼ ${formatPrice(Math.abs(diff))}`; el.className = 'price-summary-value down'; }
+      else { el.textContent = '변동없음'; el.className = 'price-summary-value neutral'; }
+    } else {
+      document.getElementById('summaryChange').textContent = '-';
+    }
+  }
+
+  function getFilteredPrices(period) {
+    if (!period || period === '0') return allPrices;
+    const months = parseInt(period);
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    return allPrices.filter(p => p.date >= cutoffStr);
+  }
+
+  function renderChart(period) {
+    const filtered = getFilteredPrices(period);
+    const wrapper = document.getElementById('chartWrapper');
+    const empty = document.getElementById('chartEmpty');
+    if (filtered.length === 0) {
+      wrapper.style.display = 'none';
+      empty.classList.remove('hidden');
+      if (priceChart) { priceChart.destroy(); priceChart = null; }
+      return;
+    }
+    wrapper.style.display = 'block';
+    empty.classList.add('hidden');
+    const labels = filtered.map(p => formatDate(p.date));
+    const maxData = filtered.map(p => p.maxPrice || null);
+    const minData = filtered.map(p => p.minPrice || null);
+    if (priceChart) priceChart.destroy();
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: '최고 호가',
+            data: maxData,
+            borderColor: '#EF4444',
+            backgroundColor: 'rgba(239,68,68,0.1)',
+            tension: 0.4, fill: false,
+            pointRadius: 4, pointHoverRadius: 6,
+            borderWidth: 2.5,
+          },
+          {
+            label: '최저 호가',
+            data: minData,
+            borderColor: '#2563EB',
+            backgroundColor: 'rgba(37,99,235,0.05)',
+            tension: 0.4, fill: '-1',
+            pointRadius: 4, pointHoverRadius: 6,
+            borderWidth: 2.5,
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { family: 'Noto Sans KR', size: 12 }, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${formatPrice(ctx.parsed.y)}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+          y: {
+            ticks: {
+              callback: v => {
+                const uk = Math.floor(v / 10000);
+                return uk > 0 ? `${uk}억` : `${v.toLocaleString()}만`;
+              },
+              font: { size: 11 }
+            },
+            grid: { color: 'rgba(0,0,0,0.05)' }
+          }
+        }
+      }
+    });
+  }
+
+  function renderPriceTable() {
+    const tbody = document.getElementById('priceTableBody');
+    if (allPrices.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">입력된 시세 데이터가 없습니다.</td></tr>';
+      return;
+    }
+    const sorted = [...allPrices].reverse();
+    tbody.innerHTML = sorted.map(p => `
+      <tr>
+        <td>${formatDate(p.date)}</td>
+        <td class="font-semibold" style="color:var(--danger)">${formatPrice(p.maxPrice)}</td>
+        <td class="font-semibold" style="color:var(--primary)">${formatPrice(p.minPrice)}</td>
+        <td>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary btn-xs" onclick="openEditPrice('${p.id}')">수정</button>
+            <button class="btn btn-danger btn-xs" onclick="deletePrice('${p.id}')">삭제</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  // ── 상세 정보 ──
+  let detailInfo = {};
+  async function loadDetailInfo() {
+    const snap = await db.collection('apartments').doc(aptId).collection('info').doc('detail').get();
+    detailInfo = snap.exists ? snap.data() : {};
+    renderDetailView();
+  }
+
+  const facingMap = { south:'남향', 'south-east':'남동향', 'south-west':'남서향', east:'동향', west:'서향', north:'북향' };
+  function renderDetailView() {
+    const val = (key, fallback='-') => detailInfo[key] ? String(detailInfo[key]) : fallback;
+    document.getElementById('v_nearStation').textContent = val('nearStation');
+    document.getElementById('v_stationDist').textContent = detailInfo.stationDist ? `${detailInfo.stationDist}m` : '-';
+    document.getElementById('v_isStationZone').textContent = detailInfo.isStationZone === 'yes' ? '역세권' : detailInfo.isStationZone === 'no' ? '비역세권' : '-';
+    document.getElementById('v_southFacing').textContent = facingMap[detailInfo.southFacing] || '-';
+    document.getElementById('v_schoolName').textContent = val('schoolName');
+    document.getElementById('v_floorAreaRatio').textContent = detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-';
+    document.getElementById('v_buildingCoverage').textContent = detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-';
+    document.getElementById('v_targetSize').textContent = val('targetSize');
+    document.getElementById('v_preferredFloor').textContent = val('preferredFloor');
+  }
+
+  // ── 뉴스 ──
+  async function loadNews() {
+    const snap = await db.collection('apartments').doc(aptId).collection('news')
+      .orderBy('createdAt', 'desc').get();
+    newsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderNewsList();
+  }
+
+  function renderNewsList() {
+    const container = document.getElementById('newsList');
+    if (newsList.length === 0) {
+      container.innerHTML = `<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:2rem">📰</div><div class="empty-title">저장된 뉴스가 없습니다</div><div class="empty-desc">위에서 URL을 입력해 뉴스를 저장해보세요.</div></div>`;
+      return;
+    }
+    container.innerHTML = newsList.map(n => `
+      <div class="news-item">
+        <div class="news-thumb">📰</div>
+        <div class="news-body flex-1">
+          <a href="${n.url || '#'}" target="_blank" rel="noopener" class="news-title">${n.title}</a>
+          ${n.summary ? `<p class="text-sm text-secondary mt-1" style="line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${n.summary}</p>` : ''}
+          <div class="news-meta"><span>${tsToDate(n.createdAt)}</span></div>
+        </div>
+        <div class="news-actions">
+          <button class="btn btn-danger btn-icon-sm" onclick="deleteNewsItem('${n.id}')" title="삭제">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── 메모 ──
+  async function loadMemos() {
+    const snap = await db.collection('apartments').doc(aptId).collection('memos')
+      .orderBy('createdAt', 'desc').get();
+    memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderMemos();
+  }
+
+  function renderMemos() {
+    const container = document.getElementById('memoList');
+    const sorted = memoSortOrder === 'asc' ? [...memos].reverse() : memos;
+    if (sorted.length === 0) {
+      container.innerHTML = `<div class="empty-state" style="padding:30px 0"><div class="empty-icon" style="font-size:2rem">📝</div><div class="empty-title">작성된 메모가 없습니다</div><div class="empty-desc">위에서 메모를 작성해보세요.</div></div>`;
+      return;
+    }
+    container.innerHTML = sorted.map(m => `
+      <div class="memo-item" id="memo_${m.id}">
+        <div class="memo-text">${escapeHtml(m.content)}</div>
+        <div class="memo-edit-area">
+          <textarea class="form-input" rows="4" id="memoEditText_${m.id}">${escapeHtml(m.content)}</textarea>
+          <div class="flex gap-2 justify-end mt-2">
+            <button class="btn btn-secondary btn-sm" onclick="cancelEditMemo('${m.id}')">취소</button>
+            <button class="btn btn-primary btn-sm" onclick="saveEditMemo('${m.id}')">저장</button>
+          </div>
+        </div>
+        <div class="memo-footer">
+          <span class="memo-date">${tsToDate(m.createdAt)}${m.updatedAt && m.updatedAt.seconds !== m.createdAt?.seconds ? ' (수정됨)' : ''}</span>
+          <div class="memo-btns">
+            <button class="btn btn-ghost btn-xs" onclick="startEditMemo('${m.id}')">수정</button>
+            <button class="btn btn-danger btn-xs" onclick="deleteMemo('${m.id}')">삭제</button>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── 이벤트 리스너 ──
+  function setupListeners() {
+    // 시세 저장
+    document.getElementById('savePriceBtn').addEventListener('click', async () => {
+      const date = document.getElementById('priceDate').value;
+      const max = parseFloat(document.getElementById('priceMax').value);
+      const min = parseFloat(document.getElementById('priceMin').value);
+      if (!date) return showToast('날짜를 선택해주세요.', 'error');
+      if (!max && !min) return showToast('최고가 또는 최저가를 입력해주세요.', 'error');
+      if (max && min && min > max) return showToast('최저가는 최고가보다 클 수 없습니다.', 'error');
+
+      // 중복 날짜 확인
+      const dup = allPrices.find(p => p.date === date);
+      if (dup && !confirm(`${formatDate(date)}에 이미 입력된 데이터가 있습니다. 덮어쓰시겠습니까?`)) return;
+      if (dup) {
+        await db.collection('apartments').doc(aptId).collection('prices').doc(dup.id).update({ maxPrice: max||null, minPrice: min||null });
+      } else {
+        await db.collection('apartments').doc(aptId).collection('prices').add({
+          date, maxPrice: max||null, minPrice: min||null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await db.collection('apartments').doc(aptId).update({
+          priceCount: firebase.firestore.FieldValue.increment(1),
+          latestMaxPrice: max||null, latestMinPrice: min||null
+        });
+      }
+      document.getElementById('priceMax').value = '';
+      document.getElementById('priceMin').value = '';
+      showToast('시세가 저장되었습니다.');
+      const activePeriod = document.querySelector('.period-btn.active')?.dataset.period || '3';
+      await loadPrices(activePeriod);
+    });
+
+    // 기간 필터
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderChart(btn.dataset.period);
+      });
+    });
+
+    // 시세 수정 저장
+    document.getElementById('updatePriceBtn').addEventListener('click', async () => {
+      const id = document.getElementById('editPriceId').value;
+      const date = document.getElementById('editPriceDate').value;
+      const max = parseFloat(document.getElementById('editPriceMax').value) || null;
+      const min = parseFloat(document.getElementById('editPriceMin').value) || null;
+      if (!date) return showToast('날짜를 선택해주세요.', 'error');
+      await db.collection('apartments').doc(aptId).collection('prices').doc(id).update({ date, maxPrice: max, minPrice: min });
+      closeModal('editPriceModal');
+      showToast('수정되었습니다.');
+      await loadPrices();
+    });
+
+    // 상세 정보 수정 모드
+    document.getElementById('editInfoBtn').addEventListener('click', () => {
+      document.getElementById('infoViewMode').classList.add('hidden');
+      document.getElementById('infoEditMode').classList.remove('hidden');
+      document.getElementById('editInfoBtn').classList.add('hidden');
+      document.getElementById('cancelInfoBtn').classList.remove('hidden');
+      // 기존 값 채우기
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      fields.forEach(k => { const el = document.getElementById('e_'+k); if (el) el.value = detailInfo[k] || ''; });
+    });
+    document.getElementById('cancelInfoBtn').addEventListener('click', () => {
+      document.getElementById('infoViewMode').classList.remove('hidden');
+      document.getElementById('infoEditMode').classList.add('hidden');
+      document.getElementById('editInfoBtn').classList.remove('hidden');
+      document.getElementById('cancelInfoBtn').classList.add('hidden');
+    });
+    document.getElementById('saveInfoBtn').addEventListener('click', async () => {
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      fields.forEach(k => { data[k] = document.getElementById('e_'+k)?.value.trim() || null; });
+      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(data, { merge: true });
+      detailInfo = { ...detailInfo, ...data };
+      renderDetailView();
+      document.getElementById('editInfoBtn').click(); // cancel edit mode
+      showToast('상세 정보가 저장되었습니다.');
+    });
+
+    // 뉴스 URL 가져오기
+    document.getElementById('fetchMetaBtn').addEventListener('click', async () => {
+      const url = document.getElementById('newsUrl').value.trim();
+      if (!url) return showToast('URL을 입력해주세요.', 'error');
+      try { new URL(url); } catch { return showToast('올바른 URL 형식이 아닙니다.', 'error'); }
+      document.getElementById('newsTitle').value = '';
+      document.getElementById('newsSummary').value = '';
+      document.getElementById('newsPreview').classList.remove('hidden');
+
+      // Open Graph 메타 가져오기 (CORS 프록시 사용)
+      try {
+        const resp = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(data.contents, 'text/html');
+          const ogTitle = doc.querySelector('meta[property="og:title"]')?.content || doc.querySelector('title')?.textContent || '';
+          const ogDesc = doc.querySelector('meta[property="og:description"]')?.content || doc.querySelector('meta[name="description"]')?.content || '';
+          if (ogTitle) document.getElementById('newsTitle').value = ogTitle.trim();
+          if (ogDesc) document.getElementById('newsSummary').value = ogDesc.trim().substring(0, 300);
+        }
+      } catch(e) { /* 가져오기 실패시 직접 입력 */ }
+    });
+
+    // 뉴스 저장
+    document.getElementById('saveNewsBtn').addEventListener('click', async () => {
+      const url = document.getElementById('newsUrl').value.trim();
+      const title = document.getElementById('newsTitle').value.trim();
+      const summary = document.getElementById('newsSummary').value.trim();
+      if (!url || !title) return showToast('URL과 제목은 필수입니다.', 'error');
+      await db.collection('apartments').doc(aptId).collection('news').add({
+        url, title, summary,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById('newsUrl').value = '';
+      document.getElementById('newsTitle').value = '';
+      document.getElementById('newsSummary').value = '';
+      document.getElementById('newsPreview').classList.add('hidden');
+      showToast('뉴스가 저장되었습니다.');
+      await loadNews();
+    });
+
+    // 메모 글자 수
+    document.getElementById('memoInput').addEventListener('input', function() {
+      document.getElementById('memoCount').textContent = `${this.value.length}/5000자`;
+    });
+
+    // 메모 저장
+    document.getElementById('saveMemoBtn').addEventListener('click', async () => {
+      const content = document.getElementById('memoInput').value.trim();
+      if (!content) return showToast('메모 내용을 입력해주세요.', 'error');
+      if (content.length > 5000) return showToast('5000자를 초과할 수 없습니다.', 'error');
+      await db.collection('apartments').doc(aptId).collection('memos').add({
+        content, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById('memoInput').value = '';
+      document.getElementById('memoCount').textContent = '0/5000자';
+      showToast('메모가 저장되었습니다.');
+      await loadMemos();
+    });
+
+    // 메모 정렬
+    document.querySelectorAll('.sort-memo-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sort-memo-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        memoSortOrder = btn.dataset.sort;
+        renderMemos();
+      });
+    });
+
+    // 아파트 삭제
+    document.getElementById('deleteAptBtn').addEventListener('click', async () => {
+      if (!confirm(`'${apartment.name}'을(를) 삭제하시겠습니까?\n시세, 뉴스, 메모 등 모든 데이터가 삭제됩니다.`)) return;
+      showLoading();
+      try {
+        // 서브컬렉션 삭제
+        for (const col of ['prices','news','memos','info']) {
+          const snap = await db.collection('apartments').doc(aptId).collection(col).get();
+          for (const d of snap.docs) await d.ref.delete();
+        }
+        await db.collection('apartments').doc(aptId).delete();
+        hideLoading();
+        showToast('삭제되었습니다.');
+        setTimeout(() => window.location.href = 'dashboard.html', 800);
+      } catch(e) { hideLoading(); showToast('삭제 중 오류가 발생했습니다.', 'error'); }
+    });
+
+    // 로그아웃
+    document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
+      if (confirm('로그아웃 하시겠습니까?')) { await auth.signOut(); window.location.href = 'index.html'; }
+    });
+  }
+
+  // ── 전역 함수 (onclick용) ──
+  function openEditPrice(id) {
+    const p = allPrices.find(p => p.id === id);
+    if (!p) return;
+    document.getElementById('editPriceId').value = id;
+    document.getElementById('editPriceDate').value = p.date;
+    document.getElementById('editPriceMax').value = p.maxPrice || '';
+    document.getElementById('editPriceMin').value = p.minPrice || '';
+    openModal('editPriceModal');
+  }
+
+  async function deletePrice(id) {
+    if (!confirm('이 시세 데이터를 삭제하시겠습니까?')) return;
+    await db.collection('apartments').doc(aptId).collection('prices').doc(id).delete();
+    await db.collection('apartments').doc(aptId).update({ priceCount: firebase.firestore.FieldValue.increment(-1) });
+    showToast('삭제되었습니다.');
+    await loadPrices();
+  }
+
+  async function deleteNewsItem(id) {
+    if (!confirm('이 뉴스를 삭제하시겠습니까?')) return;
+    await db.collection('apartments').doc(aptId).collection('news').doc(id).delete();
+    showToast('삭제되었습니다.');
+    await loadNews();
+  }
+
+  function startEditMemo(id) {
+    document.getElementById(`memo_${id}`).classList.add('editing');
+  }
+  function cancelEditMemo(id) {
+    document.getElementById(`memo_${id}`).classList.remove('editing');
+  }
+  async function saveEditMemo(id) {
+    const content = document.getElementById(`memoEditText_${id}`).value.trim();
+    if (!content) return showToast('내용을 입력해주세요.', 'error');
+    await db.collection('apartments').doc(aptId).collection('memos').doc(id).update({
+      content, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('메모가 수정되었습니다.');
+    await loadMemos();
+  }
+  async function deleteMemo(id) {
+    if (!confirm('이 메모를 삭제하시겠습니까?')) return;
+    await db.collection('apartments').doc(aptId).collection('memos').doc(id).delete();
+    showToast('삭제되었습니다.');
+    await loadMemos();
+  }
+</script>
+</body>
+</html>

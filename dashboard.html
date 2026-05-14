@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>대시보드 — 내집마련 트래커</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- 사이드바 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏠</div>
+        <div>
+          <div class="logo-text">내집마련 트래커</div>
+          <div class="logo-sub">부동산 시세 추적 서비스</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">메뉴</div>
+        <a href="dashboard.html" class="nav-item active">
+          <span class="nav-icon">📊</span> 대시보드
+        </a>
+        <a href="apartment-register.html" class="nav-item">
+          <span class="nav-icon">➕</span> 아파트 등록
+        </a>
+        <div class="nav-section-title" style="margin-top:12px">계정</div>
+        <a href="profile.html" class="nav-item">
+          <span class="nav-icon">👤</span> 프로필/설정
+        </a>
+        <button class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+          <span class="nav-icon">🚪</span> 로그아웃
+        </button>
+      </nav>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- 메인 컨텐츠 -->
+    <div class="main-content">
+      <!-- 헤더 -->
+      <header class="top-header">
+        <div class="header-left">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="header-title">대시보드</span>
+        </div>
+        <div class="header-right">
+          <div class="user-info">
+            <div class="user-name" id="headerUserName">로딩 중...</div>
+            <div class="user-email" id="headerUserEmail"></div>
+          </div>
+          <div class="user-avatar" id="headerAvatar">?</div>
+        </div>
+      </header>
+
+      <!-- 페이지 컨텐츠 -->
+      <main class="page-content">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title" id="welcomeMsg">안녕하세요! 👋</h1>
+            <p class="page-subtitle">등록한 아파트의 시세와 정보를 한눈에 확인하세요.</p>
+          </div>
+          <a href="apartment-register.html" class="btn btn-primary">
+            <span>➕</span> 아파트 등록
+          </a>
+        </div>
+
+        <!-- 통계 카드 -->
+        <div class="grid-4 mb-6" id="statsRow">
+          <div class="stat-card">
+            <div class="stat-icon">🏢</div>
+            <div class="stat-label">등록 아파트</div>
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-change neutral">개 등록됨</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📈</div>
+            <div class="stat-label">이번 달 기록</div>
+            <div class="stat-value" id="statThisMonth">0</div>
+            <div class="stat-change neutral">건 입력</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📰</div>
+            <div class="stat-label">저장된 뉴스</div>
+            <div class="stat-value" id="statNews">0</div>
+            <div class="stat-change neutral">건</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📝</div>
+            <div class="stat-label">작성 메모</div>
+            <div class="stat-value" id="statMemo">0</div>
+            <div class="stat-change neutral">개</div>
+          </div>
+        </div>
+
+        <!-- 관심 아파트 목록 -->
+        <div class="section-header">
+          <h2 class="section-title">관심 아파트</h2>
+          <a href="apartment-register.html" class="btn btn-secondary btn-sm">+ 추가</a>
+        </div>
+
+        <div id="aptListContainer">
+          <!-- 로딩 스켈레톤 -->
+          <div id="aptLoading" class="grid-3">
+            <div class="apt-card" style="pointer-events:none">
+              <div style="background:var(--bg);border-radius:6px;height:18px;width:60%;margin-bottom:8px"></div>
+              <div style="background:var(--bg);border-radius:6px;height:14px;width:80%"></div>
+              <div class="apt-price-row mt-3">
+                <div style="background:var(--bg);border-radius:6px;height:16px;flex:1"></div>
+                <div style="background:var(--bg);border-radius:6px;height:16px;flex:1"></div>
+              </div>
+            </div>
+            <div class="apt-card" style="pointer-events:none">
+              <div style="background:var(--bg);border-radius:6px;height:18px;width:50%;margin-bottom:8px"></div>
+              <div style="background:var(--bg);border-radius:6px;height:14px;width:70%"></div>
+            </div>
+          </div>
+          <!-- 실제 목록 -->
+          <div id="aptGrid" class="grid-3 hidden"></div>
+          <!-- 빈 상태 -->
+          <div id="aptEmpty" class="empty-state hidden">
+            <div class="empty-icon">🏢</div>
+            <div class="empty-title">등록된 아파트가 없습니다</div>
+            <div class="empty-desc">관심 있는 아파트를 등록하고<br>시세 변화를 직접 추적해보세요.</div>
+            <a href="apartment-register.html" class="btn btn-primary">첫 아파트 등록하기</a>
+          </div>
+        </div>
+
+        <!-- 최근 뉴스 -->
+        <div class="mt-6">
+          <div class="section-header">
+            <h2 class="section-title">최근 저장된 뉴스</h2>
+          </div>
+          <div class="card">
+            <div class="card-body">
+              <div id="newsFeed">
+                <div class="empty-state" style="padding:30px 20px">
+                  <div class="empty-icon" style="font-size:2rem">📰</div>
+                  <div class="empty-title">뉴스가 없습니다</div>
+                  <div class="empty-desc">아파트 상세 페이지에서 뉴스를 저장해보세요.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- 모바일 하단 내비게이션 -->
+    <nav class="bottom-nav">
+      <ul class="bottom-nav-list">
+        <li><a href="dashboard.html" class="bottom-nav-item active"><span class="nav-icon">📊</span>대시보드</a></li>
+        <li><a href="apartment-register.html" class="bottom-nav-item"><span class="nav-icon">➕</span>등록</a></li>
+        <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
+      </ul>
+    </nav>
+  </div>
+
+  <!-- 로딩 -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">로딩 중...</div>
+  </div>
+
+  <script src="js/firebase-config.js"></script>
+  <script>
+    let currentUser = null;
+    let apartments = [];
+
+    requireAuth(async (user) => {
+      currentUser = user;
+      initSidebar();
+      renderUserInfo(user);
+      await loadDashboard();
+    });
+
+    function renderUserInfo(user) {
+      const name = user.displayName || user.email.split('@')[0];
+      document.getElementById('headerUserName').textContent = name;
+      document.getElementById('headerUserEmail').textContent = user.email;
+      document.getElementById('headerAvatar').textContent = getInitial(user.displayName, user.email);
+      document.getElementById('welcomeMsg').textContent = `${name}님, 안녕하세요! 👋`;
+    }
+
+    async function loadDashboard() {
+      try {
+        const snap = await db.collection('apartments')
+          .where('userId', '==', currentUser.uid)
+          .get();
+        apartments = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        apartments.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        document.getElementById('statTotal').textContent = apartments.length;
+        renderApartments();
+        await Promise.all([loadStats(), loadRecentNews()]);
+      } catch (err) {
+        console.error(err);
+        document.getElementById('aptLoading').classList.add('hidden');
+        document.getElementById('aptEmpty').classList.remove('hidden');
+      }
+    }
+
+    function renderApartments() {
+      document.getElementById('aptLoading').classList.add('hidden');
+      const grid = document.getElementById('aptGrid');
+      const empty = document.getElementById('aptEmpty');
+
+      if (apartments.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      grid.classList.remove('hidden');
+      grid.innerHTML = apartments.map(apt => {
+        const latestPrice = apt.latestMaxPrice ? formatPrice(apt.latestMaxPrice) : '미입력';
+        const prevPrice = apt.prevMaxPrice;
+        const tags = [];
+        if (apt.completionYear) tags.push(`${apt.completionYear}년 준공`);
+        if (apt.totalUnits) tags.push(`${Number(apt.totalUnits).toLocaleString()}세대`);
+
+        return `
+          <a href="apartment-detail.html?id=${apt.id}" class="apt-card">
+            <div class="apt-card-header">
+              <div>
+                <div class="apt-name">${apt.name}</div>
+                <div class="apt-address">${apt.address || apt.region || ''}</div>
+              </div>
+              ${changeBadge(prevPrice, apt.latestMaxPrice)}
+            </div>
+            ${tags.length ? `<div class="apt-meta">${tags.map(t => `<span class="apt-tag">${t}</span>`).join('')}</div>` : ''}
+            <div class="apt-price-row">
+              <div class="apt-price-item">
+                <div class="apt-price-label">최근 최고가</div>
+                <div class="apt-price-value">${latestPrice}</div>
+              </div>
+              <div class="apt-price-item">
+                <div class="apt-price-label">최근 최저가</div>
+                <div class="apt-price-value">${apt.latestMinPrice ? formatPrice(apt.latestMinPrice) : '미입력'}</div>
+              </div>
+              <div class="apt-price-item">
+                <div class="apt-price-label">기록 수</div>
+                <div class="apt-price-value">${apt.priceCount || 0}건</div>
+              </div>
+            </div>
+          </a>`;
+      }).join('');
+    }
+
+    async function loadStats() {
+      let monthCount = 0, newsCount = 0, memoCount = 0;
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+
+      const promises = apartments.map(async apt => {
+        try {
+          const [prices, news, memos] = await Promise.all([
+            db.collection('apartments').doc(apt.id).collection('prices')
+              .where('date', '>=', monthStart).get(),
+            db.collection('apartments').doc(apt.id).collection('news').get(),
+            db.collection('apartments').doc(apt.id).collection('memos').get()
+          ]);
+          monthCount += prices.size;
+          newsCount += news.size;
+          memoCount += memos.size;
+        } catch(e) {}
+      });
+      await Promise.all(promises);
+      document.getElementById('statThisMonth').textContent = monthCount;
+      document.getElementById('statNews').textContent = newsCount;
+      document.getElementById('statMemo').textContent = memoCount;
+    }
+
+    async function loadRecentNews() {
+      const newsFeed = document.getElementById('newsFeed');
+      const results = await Promise.all(
+        apartments.slice(0, 5).map(apt =>
+          db.collection('apartments').doc(apt.id).collection('news')
+            .orderBy('createdAt', 'desc').limit(3).get()
+            .then(snap => snap.docs.map(d => ({ ...d.data(), aptName: apt.name, id: d.id, aptId: apt.id })))
+            .catch(() => [])
+        )
+      );
+      let allNews = results.flat();
+      if (allNews.length === 0) return;
+      allNews.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      allNews = allNews.slice(0, 8);
+      newsFeed.innerHTML = allNews.map(n => `
+        <div class="news-item">
+          <div class="news-thumb">📰</div>
+          <div class="news-body">
+            <a href="${n.url || '#'}" target="_blank" rel="noopener" class="news-title">${n.title}</a>
+            <div class="news-meta">
+              <span>${n.aptName}</span>
+              <span>·</span>
+              <span>${tsToDate(n.createdAt)}</span>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
+      if (confirm('로그아웃 하시겠습니까?')) {
+        await auth.signOut();
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>

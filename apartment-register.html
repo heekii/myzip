@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>아파트 등록 — 내집마련 트래커</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+
+    <!-- 사이드바 -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏠</div>
+        <div>
+          <div class="logo-text">내집마련 트래커</div>
+          <div class="logo-sub">부동산 시세 추적 서비스</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">메뉴</div>
+        <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+        <a href="apartment-register.html" class="nav-item active"><span class="nav-icon">➕</span> 아파트 등록</a>
+        <div class="nav-section-title" style="margin-top:12px">계정</div>
+        <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
+        <button class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+          <span class="nav-icon">🚪</span> 로그아웃
+        </button>
+      </nav>
+    </aside>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="main-content">
+      <header class="top-header">
+        <div class="header-left">
+          <button class="hamburger" id="hamburger">☰</button>
+          <span class="header-title">아파트 등록</span>
+        </div>
+        <div class="header-right">
+          <a href="dashboard.html" class="btn btn-ghost btn-sm">← 대시보드</a>
+        </div>
+      </header>
+
+      <main class="page-content" style="max-width:680px">
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">관심 아파트 등록</h1>
+            <p class="page-subtitle">시세를 추적할 아파트 단지 정보를 입력해주세요.</p>
+          </div>
+        </div>
+
+        <!-- 단계 표시 -->
+        <div class="step-indicator">
+          <div class="step active" id="step1Indicator">
+            <div class="step-circle">1</div>
+            <div class="step-label">기본 정보</div>
+          </div>
+          <div class="step-line" id="stepLine1"></div>
+          <div class="step active" id="step2Indicator">
+            <div class="step-circle">2</div>
+            <div class="step-label">상세 정보</div>
+          </div>
+          <div class="step-line" id="stepLine2"></div>
+          <div class="step" id="step3Indicator">
+            <div class="step-circle">3</div>
+            <div class="step-label">등록 완료</div>
+          </div>
+        </div>
+
+        <div id="alertBox" class="alert alert-error hidden"></div>
+
+        <!-- Step 1: 기본 정보 -->
+        <div class="card" id="step1">
+          <div class="card-header"><h3 class="card-title">기본 정보 입력</h3></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">아파트 단지명 <span style="color:var(--danger)">*</span></label>
+              <input type="text" id="aptName" class="form-input" placeholder="예: 래미안 원베일리" maxlength="50" required />
+              <div class="form-hint">정확한 단지명을 입력하면 시세 추적에 도움이 됩니다.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">주소 <span style="color:var(--danger)">*</span></label>
+              <input type="text" id="aptAddress" class="form-input" placeholder="예: 서울시 서초구 신반포로 19" required />
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">지역 (시/구)</label>
+                <input type="text" id="aptRegion" class="form-input" placeholder="예: 서울 서초구" />
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">준공연도</label>
+                <input type="number" id="aptYear" class="form-input" placeholder="예: 2024" min="1970" max="2030" />
+              </div>
+            </div>
+            <div class="form-row mt-3">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">총 세대 수</label>
+                <div class="input-addon">
+                  <input type="number" id="aptUnits" class="form-input" placeholder="예: 1680" min="1" />
+                  <span class="addon-text">세대</span>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">최고 층수</label>
+                <div class="input-addon">
+                  <input type="number" id="aptMaxFloor" class="form-input" placeholder="예: 35" min="1" />
+                  <span class="addon-text">층</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end mt-4">
+              <button class="btn btn-primary" id="toStep2Btn">다음 단계 →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: 상세 정보 -->
+        <div class="card hidden" id="step2">
+          <div class="card-header"><h3 class="card-title">상세 정보 입력 <span class="text-xs text-muted font-medium">(선택 사항)</span></h3></div>
+          <div class="card-body">
+
+            <div class="alert alert-info">
+              💡 상세 정보는 나중에 아파트 상세 페이지에서도 입력·수정할 수 있습니다.
+            </div>
+
+            <!-- 교통 -->
+            <h4 class="font-semibold mb-3" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🚇 교통</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">가장 가까운 역</label>
+                <input type="text" id="nearStation" class="form-input" placeholder="예: 신반포역 3호선" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">역까지 도보 거리</label>
+                <div class="input-addon">
+                  <input type="number" id="stationDist" class="form-input" placeholder="예: 350" min="0" />
+                  <span class="addon-text">m</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">역세권 여부</label>
+                <select id="isStationZone" class="form-input">
+                  <option value="">선택</option>
+                  <option value="yes">역세권 (500m 이내)</option>
+                  <option value="no">비역세권</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">조망/향 방향</label>
+                <select id="southFacing" class="form-input">
+                  <option value="">선택</option>
+                  <option value="south">남향</option>
+                  <option value="south-east">남동향</option>
+                  <option value="south-west">남서향</option>
+                  <option value="east">동향</option>
+                  <option value="west">서향</option>
+                  <option value="north">북향</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 교육 -->
+            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🏫 교육</h4>
+            <div class="form-group">
+              <label class="form-label">초등학교 배정</label>
+              <input type="text" id="schoolName" class="form-input" placeholder="예: 반포초등학교 (배정 확정)" />
+            </div>
+
+            <!-- 건축 -->
+            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">🏗️ 건축</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">용적률</label>
+                <div class="input-addon">
+                  <input type="number" id="floorAreaRatio" class="form-input" placeholder="예: 269" min="0" max="1000" />
+                  <span class="addon-text">%</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">건폐율</label>
+                <div class="input-addon">
+                  <input type="number" id="buildingCoverage" class="form-input" placeholder="예: 19" min="0" max="100" />
+                  <span class="addon-text">%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 관심 정보 -->
+            <h4 class="font-semibold mb-3 mt-4" style="font-size:0.9rem;color:var(--text-secondary);border-bottom:1px solid var(--border);padding-bottom:8px">⭐ 관심 타입</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">관심 면적 (㎡)</label>
+                <input type="text" id="targetSize" class="form-input" placeholder="예: 59, 84" />
+                <div class="form-hint">콤마로 구분해 여러 면적 입력 가능</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">관심 로열동/층</label>
+                <input type="text" id="preferredFloor" class="form-input" placeholder="예: 20층 이상, 201동" />
+              </div>
+            </div>
+
+            <div class="flex gap-3 justify-between mt-4">
+              <button class="btn btn-secondary" id="backToStep1Btn">← 이전</button>
+              <button class="btn btn-primary" id="registerBtn">✅ 등록 완료</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: 완료 -->
+        <div class="card hidden" id="step3">
+          <div class="card-body text-center" style="padding: 48px 24px">
+            <div style="font-size:3.5rem;margin-bottom:16px">🎉</div>
+            <h2 style="font-size:1.4rem;font-weight:700;margin-bottom:8px">등록이 완료되었습니다!</h2>
+            <p class="text-secondary text-sm mb-6" id="doneMsg">아파트를 성공적으로 등록했습니다.</p>
+            <div class="flex gap-3 justify-center">
+              <a href="dashboard.html" class="btn btn-secondary">대시보드로</a>
+              <a href="#" class="btn btn-primary" id="goDetailBtn">시세 입력하러 가기 →</a>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <nav class="bottom-nav">
+      <ul class="bottom-nav-list">
+        <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+        <li><a href="apartment-register.html" class="bottom-nav-item active"><span class="nav-icon">➕</span>등록</a></li>
+        <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
+      </ul>
+    </nav>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">등록 중...</div>
+  </div>
+
+  <script src="js/firebase-config.js"></script>
+  <script>
+    let currentUser = null;
+
+    requireAuth(user => {
+      currentUser = user;
+      initSidebar();
+    });
+
+    // Step 1 → Step 2
+    document.getElementById('toStep2Btn').addEventListener('click', () => {
+      const name = document.getElementById('aptName').value.trim();
+      const address = document.getElementById('aptAddress').value.trim();
+      const alert = document.getElementById('alertBox');
+      if (!name || !address) {
+        alert.textContent = '아파트 단지명과 주소는 필수 입력 항목입니다.';
+        alert.classList.remove('hidden');
+        return;
+      }
+      alert.classList.add('hidden');
+      document.getElementById('step1').classList.add('hidden');
+      document.getElementById('step2').classList.remove('hidden');
+      document.getElementById('step2Indicator').classList.add('active');
+      document.getElementById('stepLine1').classList.add('done');
+    });
+
+    // Step 2 → Step 1
+    document.getElementById('backToStep1Btn').addEventListener('click', () => {
+      document.getElementById('step2').classList.add('hidden');
+      document.getElementById('step1').classList.remove('hidden');
+    });
+
+    // 등록 완료
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+      const name = document.getElementById('aptName').value.trim();
+      const address = document.getElementById('aptAddress').value.trim();
+      if (!name || !address) {
+        showToast('기본 정보를 입력해주세요.', 'error');
+        return;
+      }
+
+      showLoading();
+      try {
+        // 중복 확인
+        const dup = await db.collection('apartments')
+          .where('userId', '==', currentUser.uid)
+          .where('name', '==', name)
+          .get();
+        if (!dup.empty) {
+          hideLoading();
+          showToast('이미 등록된 아파트입니다.', 'error');
+          return;
+        }
+
+        const data = {
+          userId: currentUser.uid,
+          name,
+          address,
+          region: document.getElementById('aptRegion').value.trim(),
+          completionYear: document.getElementById('aptYear').value || null,
+          totalUnits: document.getElementById('aptUnits').value || null,
+          maxFloor: document.getElementById('aptMaxFloor').value || null,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          priceCount: 0
+        };
+
+        const ref = await db.collection('apartments').add(data);
+        const newAptId = ref.id;
+
+        const detailData = {
+          nearStation: document.getElementById('nearStation').value.trim(),
+          stationDist: document.getElementById('stationDist').value || null,
+          isStationZone: document.getElementById('isStationZone').value,
+          southFacing: document.getElementById('southFacing').value,
+          schoolName: document.getElementById('schoolName').value.trim(),
+          floorAreaRatio: document.getElementById('floorAreaRatio').value || null,
+          buildingCoverage: document.getElementById('buildingCoverage').value || null,
+          targetSize: document.getElementById('targetSize').value.trim(),
+          preferredFloor: document.getElementById('preferredFloor').value.trim(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('apartments').doc(newAptId).collection('info').doc('detail').set(detailData);
+
+        hideLoading();
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step3').classList.remove('hidden');
+        document.getElementById('step3Indicator').classList.add('active');
+        document.getElementById('stepLine2').classList.add('done');
+        document.getElementById('doneMsg').textContent = `'${name}'이(가) 성공적으로 등록되었습니다.`;
+        document.getElementById('goDetailBtn').href = `apartment-detail.html?id=${newAptId}`;
+
+      } catch (err) {
+        hideLoading();
+        console.error(err);
+        showToast('등록 중 오류가 발생했습니다.', 'error');
+      }
+    });
+
+    document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
+      if (confirm('로그아웃 하시겠습니까?')) {
+        await auth.signOut();
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>
