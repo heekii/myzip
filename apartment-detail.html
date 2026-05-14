@@ -173,6 +173,22 @@
           </div>
         </div>
 
+        <!-- ============ 실거래가 조회 ============ -->
+        <div class="card mt-4" id="realTxCard">
+          <div class="card-header">
+            <h3 class="card-title">🏛️ 국토교통부 실거래가</h3>
+            <button type="button" class="btn btn-secondary btn-sm" id="fetchRealTxBtn">조회</button>
+          </div>
+          <div class="card-body">
+            <div class="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요.</div>
+            <div id="realTxLoading" class="hidden" style="text-align:center;padding:20px;color:var(--text-muted)">조회 중...</div>
+            <div id="realTxEmpty" class="hidden" style="text-align:center;padding:20px;color:var(--text-muted)">
+              실거래 데이터가 없거나 주소 검색으로 등록한 아파트가 아닙니다.
+            </div>
+            <div id="realTxList"></div>
+          </div>
+        </div>
+
         <!-- ============ 탭2: 상세 정보 ============ -->
         <div class="tab-content" id="tabInfo">
           <div class="card">
@@ -374,6 +390,8 @@
 
 <script src="js/firebase-config.js"></script>
 <script>
+  const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
+
   const aptId = getParam('id');
   let currentUser = null;
   let apartment = null;
@@ -643,6 +661,85 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── 국토교통부 실거래가 조회 ──
+  async function fetchRealTx() {
+    const lawdCd = apartment?.lawdCd;
+    if (!lawdCd) {
+      document.getElementById('realTxEmpty').classList.remove('hidden');
+      return;
+    }
+    if (MOLIT_API_KEY === 'YOUR_API_KEY_HERE') {
+      showToast('API 키를 설정해주세요.', 'error');
+      return;
+    }
+
+    const loading = document.getElementById('realTxLoading');
+    const empty = document.getElementById('realTxEmpty');
+    const list = document.getElementById('realTxList');
+    loading.classList.remove('hidden');
+    empty.classList.add('hidden');
+    list.innerHTML = '';
+
+    const now = new Date();
+    const months = [0, 1, 2].map(i => {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    try {
+      const results = await Promise.all(months.map(ym =>
+        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTrade?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=100&_type=json`)
+          .then(r => r.json())
+          .then(r => r.response?.body?.items?.item || [])
+          .catch(() => [])
+      ));
+
+      const aptName = apartment.name.replace(/\s/g, '');
+      const all = results.flat().filter(tx => {
+        const txName = (tx['아파트'] || '').replace(/\s/g, '');
+        return txName.includes(aptName) || aptName.includes(txName);
+      });
+
+      loading.classList.add('hidden');
+      if (all.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      all.sort((a, b) => {
+        const da = `${a['년']}-${String(a['월']).padStart(2,'0')}-${String(a['일']).padStart(2,'0')}`;
+        const db2 = `${b['년']}-${String(b['월']).padStart(2,'0')}-${String(b['일']).padStart(2,'0')}`;
+        return db2.localeCompare(da);
+      });
+
+      list.innerHTML = `
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">거래일</th>
+                <th scope="col">면적(㎡)</th>
+                <th scope="col">층</th>
+                <th scope="col">실거래가</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${all.slice(0, 20).map(tx => `
+                <tr>
+                  <td>${tx['년']}.${String(tx['월']).padStart(2,'0')}.${String(tx['일']).padStart(2,'0')}</td>
+                  <td>${parseFloat(tx['전용면적']).toFixed(1)}</td>
+                  <td>${tx['층']}층</td>
+                  <td style="font-weight:600;color:var(--primary)">${formatPrice(String(tx['거래금액']).replace(/,/g, '').trim())}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (e) {
+      loading.classList.add('hidden');
+      empty.classList.remove('hidden');
+    }
+  }
+
   // ── 이벤트 리스너 ──
   function setupListeners() {
     // 시세 저장
@@ -818,6 +915,9 @@
     document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
       if (confirm('로그아웃 하시겠습니까?')) { await auth.signOut(); window.location.href = 'index.html'; }
     });
+
+    // 실거래가 조회
+    document.getElementById('fetchRealTxBtn').addEventListener('click', fetchRealTx);
   }
 
   // ── 전역 함수 (onclick용) ──
