@@ -8,6 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 </head>
 <body>
   <div class="app-layout">
@@ -77,19 +78,25 @@
         <div class="card" id="step1">
           <div class="card-header"><h3 class="card-title">기본 정보 입력</h3></div>
           <div class="card-body">
-            <div class="form-group">
+            <div class="form-group" style="position:relative">
               <label class="form-label">아파트 단지명 <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="aptName" class="form-input" placeholder="예: 래미안 원베일리" maxlength="50" required />
-              <div class="form-hint">정확한 단지명을 입력하면 시세 추적에 도움이 됩니다.</div>
+              <input type="text" id="aptName" class="form-input" placeholder="아파트 이름으로 검색..." maxlength="50" required autocomplete="off" />
+              <div id="aptNameDropdown" style="display:none;position:absolute;top:calc(100% - 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:100;max-height:280px;overflow-y:auto"></div>
+              <div class="form-hint">이름을 입력하면 자동으로 검색돼요. 선택하면 주소도 자동 입력됩니다.</div>
             </div>
             <div class="form-group">
               <label class="form-label">주소 <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="aptAddress" class="form-input" placeholder="예: 서울시 서초구 신반포로 19" required />
+              <div class="flex gap-2">
+                <input type="text" id="aptAddress" class="form-input" placeholder="주소 검색 버튼을 눌러주세요" readonly required style="background:var(--bg-card);cursor:pointer" onclick="searchAddress()" />
+                <button type="button" class="btn btn-secondary" onclick="searchAddress()" style="white-space:nowrap">🔍 검색</button>
+              </div>
+              <input type="hidden" id="aptLawdCd" />
+              <input type="hidden" id="aptSigungu" />
             </div>
             <div class="form-row">
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label">지역 (시/구)</label>
-                <input type="text" id="aptRegion" class="form-input" placeholder="예: 서울 서초구" />
+                <input type="text" id="aptRegion" class="form-input" placeholder="주소 검색 시 자동 입력" readonly />
               </div>
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label">준공연도</label>
@@ -301,6 +308,7 @@
           name,
           address,
           region: document.getElementById('aptRegion').value.trim(),
+          lawdCd: document.getElementById('aptLawdCd').value || null,
           completionYear: document.getElementById('aptYear').value || null,
           totalUnits: document.getElementById('aptUnits').value || null,
           maxFloor: document.getElementById('aptMaxFloor').value || null,
@@ -339,6 +347,79 @@
         showToast('등록 중 오류가 발생했습니다.', 'error');
       }
     });
+
+    const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974';
+    let nameSearchTimer = null;
+
+    document.getElementById('aptName').addEventListener('input', function() {
+      clearTimeout(nameSearchTimer);
+      const q = this.value.trim();
+      const dropdown = document.getElementById('aptNameDropdown');
+      if (q.length < 2) { dropdown.style.display = 'none'; return; }
+      nameSearchTimer = setTimeout(() => searchApartmentName(q), 350);
+    });
+
+    document.getElementById('aptName').addEventListener('blur', () => {
+      setTimeout(() => { document.getElementById('aptNameDropdown').style.display = 'none'; }, 200);
+    });
+
+    async function searchApartmentName(q) {
+      const dropdown = document.getElementById('aptNameDropdown');
+      try {
+        const res = await fetch(
+          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q + ' 아파트')}&size=15`,
+          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+        );
+        const data = await res.json();
+        const places = (data.documents || []).filter(p => p.category_name?.includes('아파트'));
+        if (!places.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = places.map(p => `
+          <div class="apt-suggest-item"
+            style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border)"
+            data-name="${p.place_name.replace(/"/g, '&quot;')}"
+            data-address="${(p.road_address_name || p.address_name).replace(/"/g, '&quot;')}">
+            <div style="font-weight:500;font-size:14px">${p.place_name}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${p.road_address_name || p.address_name}</div>
+          </div>`).join('');
+        dropdown.querySelectorAll('.apt-suggest-item').forEach(el => {
+          el.addEventListener('mousedown', () => selectApartment(el.dataset.name, el.dataset.address));
+        });
+        dropdown.style.display = 'block';
+      } catch(e) {
+        dropdown.style.display = 'none';
+      }
+    }
+
+    async function selectApartment(name, address) {
+      document.getElementById('aptName').value = name;
+      document.getElementById('aptAddress').value = address;
+      document.getElementById('aptNameDropdown').style.display = 'none';
+      try {
+        const res = await fetch(
+          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`,
+          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+        );
+        const data = await res.json();
+        const doc = data.documents?.[0];
+        if (doc?.address) {
+          const sido = doc.address.region_1depth_name || '';
+          const sigungu = doc.address.region_2depth_name || '';
+          document.getElementById('aptRegion').value = `${sido} ${sigungu}`.trim();
+          const bCode = doc.address.b_code || '';
+          if (bCode) document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
+        }
+      } catch(e) { /* 주소 자동입력 실패 시 수동 검색으로 보완 */ }
+    }
+
+    function searchAddress() {
+      new daum.Postcode({
+        oncomplete(data) {
+          document.getElementById('aptAddress').value = data.roadAddress || data.jibunAddress;
+          document.getElementById('aptRegion').value = `${data.sido} ${data.sigungu}`.trim();
+          document.getElementById('aptLawdCd').value = data.sigunguCode;
+        }
+      }).open();
+    }
 
     document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
       if (confirm('로그아웃 하시겠습니까?')) {
