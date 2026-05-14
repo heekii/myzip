@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push)",
+      "Bash(git remote*)",
+      "Bash(git branch*)",
+      "Bash(git init)",
+      "Bash(firebase --version)",
+      "Bash(firebase deploy --only hosting)",
+      "Bash(firebase projects:list)",
+      "Bash(npm install -g *)",
+      "Bash(npm --version)",
+      "Bash(node --version)",
+      "Bash(html-validate *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -f*)",
+      "Bash(rm -rf*)",
+      "Bash(firebase login:ci)",
+      "Bash(npm install * --save)"
+    ]
+  }
+}
