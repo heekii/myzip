@@ -213,18 +213,19 @@
           dropdown.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text-muted)">결과가 없습니다</div>';
           return;
         }
-        const places = result.filter(p => p.category_name?.includes('아파트'));
+        const places = result.filter(p => p.category_name?.endsWith('아파트'));
         if (!places.length) {
           dropdown.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text-muted)">아파트 결과가 없습니다</div>';
           return;
         }
 
         dropdown.innerHTML = places.map(p => {
+          const cleanName = p.place_name.replace(/아파트$/, '').trim();
           const addr = p.road_address_name || p.address_name;
           return `<div class="apt-suggest-item"
-            data-name="${escHtml(p.place_name)}"
+            data-name="${escHtml(cleanName)}"
             data-address="${escHtml(addr)}">
-            <div class="suggest-name">${highlightText(p.place_name, q)}</div>
+            <div class="suggest-name">${highlightText(cleanName, q)}</div>
             <div class="suggest-addr">${escHtml(addr)}</div>
           </div>`;
         }).join('');
