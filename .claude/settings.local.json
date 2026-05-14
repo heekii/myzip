@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(npm --version)",
-      "Bash(firebase --version)"
+      "Bash(firebase --version)",
+      "Bash(firebase deploy *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(mkdir -p \"d:/001_UXUI/08_부동산시세트래킹/.git/hooks\")"
+    ],
+    "additionalDirectories": [
+      "d:\\001_UXUI\\08_부동산시세트래킹\\.git\\hooks"
     ]
   }
 }

@@ -13,7 +13,7 @@
   <div class="app-layout">
 
     <!-- 사이드바 -->
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="사이드바 메뉴">
       <div class="sidebar-logo">
         <div class="logo-icon">🏠</div>
         <div>
@@ -21,13 +21,13 @@
           <div class="logo-sub">부동산 시세 추적 서비스</div>
         </div>
       </div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="사이드바 메뉴">
         <div class="nav-section-title">메뉴</div>
         <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
         <a href="apartment-register.html" class="nav-item active"><span class="nav-icon">➕</span> 아파트 등록</a>
         <div class="nav-section-title" style="margin-top:12px">계정</div>
         <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
-        <button class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+        <button type="button" class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
           <span class="nav-icon">🚪</span> 로그아웃
         </button>
       </nav>
@@ -37,7 +37,7 @@
     <div class="main-content">
       <header class="top-header">
         <div class="header-left">
-          <button class="hamburger" id="hamburger">☰</button>
+          <button type="button" class="hamburger" id="hamburger">☰</button>
           <span class="header-title">아파트 등록</span>
         </div>
         <div class="header-right">
@@ -113,7 +113,7 @@
               </div>
             </div>
             <div class="flex justify-end mt-4">
-              <button class="btn btn-primary" id="toStep2Btn">다음 단계 →</button>
+              <button type="button" class="btn btn-primary" id="toStep2Btn">다음 단계 →</button>
             </div>
           </div>
         </div>
@@ -206,8 +206,8 @@
             </div>
 
             <div class="flex gap-3 justify-between mt-4">
-              <button class="btn btn-secondary" id="backToStep1Btn">← 이전</button>
-              <button class="btn btn-primary" id="registerBtn">✅ 등록 완료</button>
+              <button type="button" class="btn btn-secondary" id="backToStep1Btn">← 이전</button>
+              <button type="button" class="btn btn-primary" id="registerBtn">✅ 등록 완료</button>
             </div>
           </div>
         </div>
@@ -228,7 +228,7 @@
       </main>
     </div>
 
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="하단 내비게이션">
       <ul class="bottom-nav-list">
         <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
         <li><a href="apartment-register.html" class="bottom-nav-item active"><span class="nav-icon">➕</span>등록</a></li>
