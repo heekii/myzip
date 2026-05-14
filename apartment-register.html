@@ -127,8 +127,14 @@
     const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
     let currentUser = null;
     let nameSearchTimer = null;
-    const ps = new kakao.maps.services.Places();
-    const geocoder = new kakao.maps.services.Geocoder();
+    let ps = null;
+    let geocoder = null;
+    try {
+      ps = new kakao.maps.services.Places();
+      geocoder = new kakao.maps.services.Geocoder();
+    } catch(e) {
+      console.warn('Kakao Maps SDK 로드 실패:', e.message);
+    }
 
     requireAuth(user => {
       currentUser = user;
@@ -205,6 +211,11 @@
 
     function searchApartmentName(q) {
       const dropdown = document.getElementById('aptNameDropdown');
+      if (!ps) {
+        dropdown.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text-muted)">검색 불가 — 아래 주소 직접 검색을 이용해주세요</div>';
+        dropdown.style.display = 'block';
+        return;
+      }
       dropdown.innerHTML = '<div style="padding:12px 16px;font-size:13px;color:var(--text-muted)">검색 중...</div>';
       dropdown.style.display = 'block';
 
