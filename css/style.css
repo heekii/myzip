@@ -398,6 +398,44 @@ tbody tr:hover td { background: #FAFBFF; }
 .info-value.empty { color: var(--text-muted); font-weight: 400; font-style: italic; }
 
 /* ===========================
+   COMMUTE CARDS
+=========================== */
+.commute-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.commute-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 12px;
+  text-align: center;
+}
+.commute-station {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.commute-mins {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text-primary);
+}
+.commute-mins.fast   { color: #10B981; }
+.commute-mins.medium { color: #F59E0B; }
+.commute-mins.slow   { color: #EF4444; }
+.commute-unit {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ===========================
    CHART
 =========================== */
 .chart-container { position: relative; height: 300px; width: 100%; }
@@ -734,6 +772,7 @@ tbody tr:hover td { background: #FAFBFF; }
   .info-grid { grid-template-columns: 1fr; }
   .info-item { border-right: none !important; }
   .info-item:nth-last-child(1) { border-bottom: none; }
+  .commute-grid { grid-template-columns: 1fr; }
   .chart-container { height: 220px; }
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal { border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: 92vh; max-width: 100%; }

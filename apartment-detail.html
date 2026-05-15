@@ -205,10 +205,22 @@
                   <div class="info-item"><div class="info-label">채광/향</div><div class="info-value" id="v_southFacing">-</div></div>
                 </div>
                 <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🗺️ 업무지구 접근성</h4>
-                <div class="info-grid mb-4">
-                  <div class="info-item"><div class="info-label">강남역까지</div><div class="info-value" id="v_commuteGangnam">-</div></div>
-                  <div class="info-item"><div class="info-label">여의도역까지</div><div class="info-value" id="v_commuteYeouido">-</div></div>
-                  <div class="info-item" style="grid-column:span 2"><div class="info-label">종로3가역까지</div><div class="info-value" id="v_commuteJongno">-</div></div>
+                <div class="commute-grid mb-4">
+                  <div class="commute-card">
+                    <div class="commute-station">강남역</div>
+                    <div class="commute-mins" id="v_commuteGangnam">-</div>
+                    <div class="commute-unit" id="v_commuteGangnamUnit"></div>
+                  </div>
+                  <div class="commute-card">
+                    <div class="commute-station">여의도역</div>
+                    <div class="commute-mins" id="v_commuteYeouido">-</div>
+                    <div class="commute-unit" id="v_commuteYeouidoUnit"></div>
+                  </div>
+                  <div class="commute-card">
+                    <div class="commute-station">종로3가역</div>
+                    <div class="commute-mins" id="v_commuteJongno">-</div>
+                    <div class="commute-unit" id="v_commuteJongnoUnit"></div>
+                  </div>
                 </div>
                 <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
                 <div class="info-grid mb-4">
@@ -563,15 +575,33 @@
   }
 
   const facingMap = { south:'남향', 'south-east':'남동향', 'south-west':'남서향', east:'동향', west:'서향', north:'북향' };
+
+  function setCommuteCard(minsId, unitId, raw) {
+    const el = document.getElementById(minsId);
+    const unitEl = document.getElementById(unitId);
+    if (!el) return;
+    if (!raw) { el.textContent = '-'; el.className = 'commute-mins'; if (unitEl) unitEl.textContent = ''; return; }
+    const mins = parseInt(raw);
+    if (!isNaN(mins)) {
+      el.textContent = mins;
+      el.className = 'commute-mins' + (mins <= 25 ? ' fast' : mins <= 40 ? ' medium' : ' slow');
+      if (unitEl) unitEl.textContent = '분 (대중교통)';
+    } else {
+      el.textContent = raw;
+      el.className = 'commute-mins';
+      if (unitEl) unitEl.textContent = '';
+    }
+  }
+
   function renderDetailView() {
     const val = (key, fallback='-') => detailInfo[key] ? String(detailInfo[key]) : fallback;
     document.getElementById('v_nearStation').textContent = val('nearStation');
     document.getElementById('v_stationDist').textContent = detailInfo.stationDist ? `${detailInfo.stationDist}m` : '-';
     document.getElementById('v_isStationZone').textContent = detailInfo.isStationZone === 'yes' ? '역세권' : detailInfo.isStationZone === 'no' ? '비역세권' : '-';
     document.getElementById('v_southFacing').textContent = facingMap[detailInfo.southFacing] || '-';
-    document.getElementById('v_commuteGangnam').textContent = val('commuteGangnam');
-    document.getElementById('v_commuteYeouido').textContent = val('commuteYeouido');
-    document.getElementById('v_commuteJongno').textContent = detailInfo.commuteJongno || detailInfo.commuteGwanghwamun || '-';
+    setCommuteCard('v_commuteGangnam', 'v_commuteGangnamUnit', detailInfo.commuteGangnam);
+    setCommuteCard('v_commuteYeouido', 'v_commuteYeouidoUnit', detailInfo.commuteYeouido);
+    setCommuteCard('v_commuteJongno', 'v_commuteJongnoUnit', detailInfo.commuteJongno || detailInfo.commuteGwanghwamun);
     document.getElementById('v_schoolName').textContent = val('schoolName');
     document.getElementById('v_floorAreaRatio').textContent = detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-';
     document.getElementById('v_buildingCoverage').textContent = detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-';
