@@ -69,6 +69,7 @@ function formatDate(dateStr) {
 function tsToDate(ts) {
   if (!ts) return '-';
   if (ts.toDate) return ts.toDate().toLocaleDateString('ko-KR');
+  if (ts.seconds) return new Date(ts.seconds * 1000).toLocaleDateString('ko-KR');
   return new Date(ts).toLocaleDateString('ko-KR');
 }
 
@@ -150,13 +151,12 @@ function initTabs(containerSelector) {
 }
 
 // 인증 상태 확인 (보호된 페이지용)
-// allowGuest: true 이면 ?guest=1 파라미터로 비로그인 접근 허용 (callback에 null 전달)
+// allowGuest: true 이면 비로그인도 허용 (callback에 null 전달)
 function requireAuth(callback, { allowGuest = false } = {}) {
-  const isGuest = getParam('guest') === '1';
   auth.onAuthStateChanged(user => {
     if (user) {
       callback(user);
-    } else if (allowGuest && isGuest) {
+    } else if (allowGuest) {
       callback(null);
     } else {
       window.location.href = 'index.html';
@@ -184,6 +184,109 @@ function showGuestBanner(msg = '게스트 모드입니다. 데이터는 저장�
   banner.innerHTML = `<span>👀 ${msg}</span><a href="index.html#signup" class="btn btn-primary btn-sm">회원가입</a>`;
   document.querySelector('.page-content, .auth-page, main')?.prepend(banner);
 }
+
+// ============================================================
+//  게스트 데이터 저장소 (sessionStorage 기반, 탭 종료 시 초기화)
+//  로그인 없이도 앱 전체를 사용 가능하게 하는 임시 DB
+// ============================================================
+const guestDB = (() => {
+  const KEY = 'myzip_guest_v1';
+  function load() {
+    try { return JSON.parse(sessionStorage.getItem(KEY)) || { apartments: {}, prices: {}, memos: {}, info: {} }; }
+    catch(e) { return { apartments: {}, prices: {}, memos: {}, info: {} }; }
+  }
+  function save(data) { sessionStorage.setItem(KEY, JSON.stringify(data)); }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function ts() { return { seconds: Math.floor(Date.now() / 1000) }; }
+
+  return {
+    // ── 아파트 ──
+    getApartments() {
+      const s = load();
+      return Object.entries(s.apartments).map(([id, d]) => ({ id, ...d }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    },
+    getApartment(id) {
+      const s = load(); const d = s.apartments[id];
+      return d ? { id, ...d } : null;
+    },
+    addApartment(data) {
+      const s = load(); const id = newId();
+      s.apartments[id] = { ...data, userId: '__guest__', createdAt: ts(), priceCount: 0 };
+      save(s); return id;
+    },
+    updateApartment(id, data) {
+      const s = load();
+      if (s.apartments[id]) Object.assign(s.apartments[id], data);
+      save(s);
+    },
+    deleteApartment(id) {
+      const s = load();
+      delete s.apartments[id]; delete s.prices[id]; delete s.memos[id]; delete s.info[id];
+      save(s);
+    },
+
+    // ── 시세 ──
+    getPrices(aptId) {
+      const s = load();
+      return Object.entries(s.prices[aptId] || {})
+        .map(([id, d]) => ({ id, ...d })).sort((a, b) => a.date.localeCompare(b.date));
+    },
+    addPrice(aptId, data) {
+      const s = load(); const id = newId();
+      if (!s.prices[aptId]) s.prices[aptId] = {};
+      s.prices[aptId][id] = { ...data, createdAt: ts() };
+      const apt = s.apartments[aptId];
+      if (apt) { apt.priceCount = (apt.priceCount || 0) + 1; apt.latestMaxPrice = data.maxPrice || null; apt.latestMinPrice = data.minPrice || null; }
+      save(s); return id;
+    },
+    updatePrice(aptId, priceId, data) {
+      const s = load();
+      if (s.prices[aptId]?.[priceId]) Object.assign(s.prices[aptId][priceId], data);
+      save(s);
+    },
+    deletePrice(aptId, priceId) {
+      const s = load();
+      if (s.prices[aptId]) {
+        delete s.prices[aptId][priceId];
+        if (s.apartments[aptId]) s.apartments[aptId].priceCount = Math.max(0, (s.apartments[aptId].priceCount || 1) - 1);
+      }
+      save(s);
+    },
+
+    // ── 메모 ──
+    getMemos(aptId) {
+      const s = load();
+      return Object.entries(s.memos[aptId] || {})
+        .map(([id, d]) => ({ id, ...d })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    },
+    addMemo(aptId, content) {
+      const s = load(); const id = newId(); const now = ts();
+      if (!s.memos[aptId]) s.memos[aptId] = {};
+      s.memos[aptId][id] = { content, createdAt: now, updatedAt: now };
+      save(s); return id;
+    },
+    updateMemo(aptId, memoId, content) {
+      const s = load();
+      if (s.memos[aptId]?.[memoId]) { s.memos[aptId][memoId].content = content; s.memos[aptId][memoId].updatedAt = ts(); }
+      save(s);
+    },
+    deleteMemo(aptId, memoId) {
+      const s = load();
+      if (s.memos[aptId]) delete s.memos[aptId][memoId];
+      save(s);
+    },
+
+    // ── 상세 정보 ──
+    getInfo(aptId) { const s = load(); return s.info[aptId] || {}; },
+    setInfo(aptId, data) {
+      const s = load();
+      if (!s.info[aptId]) s.info[aptId] = {};
+      Object.assign(s.info[aptId], data);
+      save(s);
+    },
+  };
+})();
 
 // 장식성 이모지·아이콘 스크린리더 숨김, 버튼 레이블 보완
 document.addEventListener('DOMContentLoaded', () => {

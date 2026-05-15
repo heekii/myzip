@@ -156,17 +156,12 @@
     requireAuth(async (user) => {
       if (!user) {
         initSidebar();
-        showGuestBanner('게스트 모드입니다. 아파트를 등록하고 시세를 기록하려면 로그인이 필요해요.');
+        showGuestBanner('게스트 모드입니다. 지금 입력한 데이터는 탭을 닫으면 사라져요. 영구 저장하려면 로그인하세요.');
         document.getElementById('welcomeMsg').textContent = '내집마련 트래커에 오신 걸 환영해요! 👋';
         document.getElementById('headerUserName').textContent = '게스트';
         document.getElementById('headerUserEmail').textContent = '';
         document.getElementById('headerAvatar').textContent = '?';
-        document.getElementById('aptLoading').classList.add('hidden');
-        document.getElementById('aptEmpty').classList.remove('hidden');
-        document.getElementById('statTotal').textContent = '-';
-        document.getElementById('statThisMonth').textContent = '-';
-        document.getElementById('statUp').textContent = '-';
-        document.getElementById('statDown').textContent = '-';
+        loadGuestDashboard();
         return;
       }
       currentUser = user;
@@ -174,6 +169,18 @@
       renderUserInfo(user);
       await loadDashboard();
     }, { allowGuest: true });
+
+    function loadGuestDashboard() {
+      apartments = guestDB.getApartments();
+      document.getElementById('statTotal').textContent = apartments.length;
+      document.getElementById('aptLoading').classList.add('hidden');
+      if (apartments.length === 0) {
+        document.getElementById('aptEmpty').classList.remove('hidden');
+      } else {
+        renderApartments();
+        loadStats();
+      }
+    }
 
     function renderUserInfo(user) {
       const name = user.displayName || user.email.split('@')[0];

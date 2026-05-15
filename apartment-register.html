@@ -157,7 +157,6 @@
 
     // 등록
     document.getElementById('registerBtn').addEventListener('click', async () => {
-      if (!currentUser) { openModal('guestModal'); return; }
       const name = document.getElementById('aptName').value.trim();
       const address = document.getElementById('aptAddress').value.trim();
       if (!name) { showToast('아파트 이름을 입력해주세요.', 'error'); return; }
@@ -165,6 +164,30 @@
 
       showLoading();
       try {
+        // 게스트 모드: sessionStorage에 저장
+        if (!currentUser) {
+          const aptData = {
+            name, address,
+            region: document.getElementById('aptRegion').value.trim(),
+            lawdCd: document.getElementById('aptLawdCd').value || null,
+            completionYear: document.getElementById('aptYear').value || null,
+            totalUnits: document.getElementById('aptUnits').value || null,
+            maxFloor: document.getElementById('aptMaxFloor').value || null,
+            lat: parseFloat(document.getElementById('aptLat').value) || null,
+            lng: parseFloat(document.getElementById('aptLng').value) || null,
+          };
+          const aptId = guestDB.addApartment(aptData);
+          const commuteData = {
+            commuteGangnam: document.getElementById('aptCommute_gangnam').value || null,
+            commuteYeouido: document.getElementById('aptCommute_yeouido').value || null,
+            commuteJongno:  document.getElementById('aptCommute_jongno').value  || null,
+          };
+          guestDB.setInfo(aptId, commuteData);
+          hideLoading();
+          window.location.href = `apartment-detail.html?id=${aptId}`;
+          return;
+        }
+
         const dup = await db.collection('apartments')
           .where('userId', '==', currentUser.uid)
           .where('name', '==', name)
@@ -173,8 +196,7 @@
 
         const ref = await db.collection('apartments').add({
           userId: currentUser.uid,
-          name,
-          address,
+          name, address,
           region: document.getElementById('aptRegion').value.trim(),
           lawdCd: document.getElementById('aptLawdCd').value || null,
           completionYear: document.getElementById('aptYear').value || null,

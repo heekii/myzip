@@ -388,6 +388,7 @@
 
   const aptId = getParam('id');
   let currentUser = null;
+  let isGuest = false;
   let apartment = null;
   let allPrices = [];
   let memos = [];
@@ -399,21 +400,28 @@
 
   requireAuth(async user => {
     currentUser = user;
+    isGuest = !user;
     initSidebar();
+    if (isGuest) showGuestBanner('게스트 모드입니다. 지금 입력한 데이터는 탭을 닫으면 사라져요.');
     await loadApartment();
     setupListeners();
-  });
+  }, { allowGuest: true });
 
   // ── 아파트 기본 정보 로드 ──
   async function loadApartment() {
     showLoading();
     try {
-      const snap = await db.collection('apartments').doc(aptId).get();
-      if (!snap.exists || snap.data().userId !== currentUser.uid) {
-        window.location.href = 'dashboard.html';
-        return;
+      if (isGuest) {
+        const d = guestDB.getApartment(aptId);
+        if (!d) { window.location.href = 'dashboard.html'; return; }
+        apartment = d;
+      } else {
+        const snap = await db.collection('apartments').doc(aptId).get();
+        if (!snap.exists || snap.data().userId !== currentUser.uid) {
+          window.location.href = 'dashboard.html'; return;
+        }
+        apartment = { id: snap.id, ...snap.data() };
       }
-      apartment = { id: snap.id, ...snap.data() };
       renderHeader();
       await Promise.all([loadPrices(), loadDetailInfo(), loadMemos()]);
     } catch(e) { console.error(e); }
@@ -435,9 +443,13 @@
 
   // ── 시세 ──
   async function loadPrices(period) {
-    const snap = await db.collection('apartments').doc(aptId).collection('prices')
-      .orderBy('date', 'asc').get();
-    allPrices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (isGuest) {
+      allPrices = guestDB.getPrices(aptId);
+    } else {
+      const snap = await db.collection('apartments').doc(aptId).collection('prices')
+        .orderBy('date', 'asc').get();
+      allPrices = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
     renderPriceSummary();
     renderPriceTable();
     renderChart(period || '3');
@@ -568,8 +580,12 @@
   // ── 상세 정보 ──
   let detailInfo = {};
   async function loadDetailInfo() {
-    const snap = await db.collection('apartments').doc(aptId).collection('info').doc('detail').get();
-    detailInfo = snap.exists ? snap.data() : {};
+    if (isGuest) {
+      detailInfo = guestDB.getInfo(aptId);
+    } else {
+      const snap = await db.collection('apartments').doc(aptId).collection('info').doc('detail').get();
+      detailInfo = snap.exists ? snap.data() : {};
+    }
     renderDetailView();
     autoFillMissingInfo(); // 빈 필드 백그라운드 자동 조회 (await 없음)
   }
@@ -611,9 +627,13 @@
 
   // ── 메모 ──
   async function loadMemos() {
-    const snap = await db.collection('apartments').doc(aptId).collection('memos')
-      .orderBy('createdAt', 'desc').get();
-    memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (isGuest) {
+      memos = guestDB.getMemos(aptId);
+    } else {
+      const snap = await db.collection('apartments').doc(aptId).collection('memos')
+        .orderBy('createdAt', 'desc').get();
+      memos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
     renderMemos();
   }
 
@@ -741,7 +761,8 @@
       if (!doc) return null;
       const lat = parseFloat(doc.y), lng = parseFloat(doc.x);
       apartment.lat = lat; apartment.lng = lng;
-      await db.collection('apartments').doc(aptId).update({ lat, lng });
+      if (isGuest) guestDB.updateApartment(aptId, { lat, lng });
+      else await db.collection('apartments').doc(aptId).update({ lat, lng });
       return { lat, lng };
     } catch(e) { return null; }
   }
@@ -763,7 +784,8 @@
       const bjdCode = bRegion.code;
       apartment.lawdCd = lawdCd;
       apartment.bjdCode = bjdCode;
-      await db.collection('apartments').doc(aptId).update({ lawdCd, bjdCode });
+      if (isGuest) guestDB.updateApartment(aptId, { lawdCd, bjdCode });
+      else await db.collection('apartments').doc(aptId).update({ lawdCd, bjdCode });
       return lawdCd;
     } catch(e) { return apartment.lawdCd || null; }
   }
@@ -796,7 +818,8 @@
         stationDist: dist,
         isStationZone: dist <= 500 ? 'yes' : 'no'
       };
-      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      if (isGuest) guestDB.setInfo(aptId, updates);
+      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
       Object.assign(detailInfo, updates);
       renderDetailView();
     } catch(e) {}
@@ -821,7 +844,8 @@
       const updates = {};
       entries.forEach(([key, time]) => { if (time) updates[keyMap[key]] = time; });
       if (!Object.keys(updates).length) return;
-      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      if (isGuest) guestDB.setInfo(aptId, updates);
+      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
       Object.assign(detailInfo, updates);
       renderDetailView();
     } catch(e) {}
@@ -840,7 +864,8 @@
       const school = (data.documents || []).find(p => p.place_name.includes('초등학교'));
       if (!school) return;
       const updates = { schoolName: school.place_name };
-      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      if (isGuest) guestDB.setInfo(aptId, updates);
+      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
       Object.assign(detailInfo, updates);
       renderDetailView();
     } catch(e) {}
@@ -853,7 +878,6 @@
       const bjdCode = apartment.bjdCode;
       if (!bjdCode) return;
 
-      // 단지코드 확보: 저장된 값 우선
       let kaptCode = apartment.kaptCode;
       if (!kaptCode) {
         const listRes = await fetch(
@@ -871,7 +895,8 @@
         if (!matched?.kaptCode) return;
         kaptCode = matched.kaptCode;
         apartment.kaptCode = kaptCode;
-        await db.collection('apartments').doc(aptId).update({ kaptCode }).catch(() => {});
+        if (isGuest) guestDB.updateApartment(aptId, { kaptCode });
+        else await db.collection('apartments').doc(aptId).update({ kaptCode }).catch(() => {});
       }
 
       const infoRes = await fetch(
@@ -884,7 +909,8 @@
       if (info.kaptdacPurpRate) updates.floorAreaRatio = Math.round(parseFloat(info.kaptdacPurpRate));
       if (info.kaptdacFilRa)    updates.buildingCoverage = Math.round(parseFloat(info.kaptdacFilRa));
       if (!Object.keys(updates).length) return;
-      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      if (isGuest) guestDB.setInfo(aptId, updates);
+      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
       Object.assign(detailInfo, updates);
       renderDetailView();
     } catch(e) {}
@@ -957,17 +983,22 @@
       // 중복 날짜 확인
       const dup = allPrices.find(p => p.date === date);
       if (dup && !confirm(`${formatDate(date)}에 이미 입력된 데이터가 있습니다. 덮어쓰시겠습니까?`)) return;
-      if (dup) {
-        await db.collection('apartments').doc(aptId).collection('prices').doc(dup.id).update({ maxPrice: max||null, minPrice: min||null });
+      if (isGuest) {
+        if (dup) guestDB.updatePrice(aptId, dup.id, { maxPrice: max||null, minPrice: min||null });
+        else guestDB.addPrice(aptId, { date, maxPrice: max||null, minPrice: min||null });
       } else {
-        await db.collection('apartments').doc(aptId).collection('prices').add({
-          date, maxPrice: max||null, minPrice: min||null,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        await db.collection('apartments').doc(aptId).update({
-          priceCount: firebase.firestore.FieldValue.increment(1),
-          latestMaxPrice: max||null, latestMinPrice: min||null
-        });
+        if (dup) {
+          await db.collection('apartments').doc(aptId).collection('prices').doc(dup.id).update({ maxPrice: max||null, minPrice: min||null });
+        } else {
+          await db.collection('apartments').doc(aptId).collection('prices').add({
+            date, maxPrice: max||null, minPrice: min||null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          await db.collection('apartments').doc(aptId).update({
+            priceCount: firebase.firestore.FieldValue.increment(1),
+            latestMaxPrice: max||null, latestMinPrice: min||null
+          });
+        }
       }
       document.getElementById('priceMax').value = '';
       document.getElementById('priceMin').value = '';
@@ -992,7 +1023,8 @@
       const max = parseFloat(document.getElementById('editPriceMax').value) || null;
       const min = parseFloat(document.getElementById('editPriceMin').value) || null;
       if (!date) return showToast('날짜를 선택해주세요.', 'error');
-      await db.collection('apartments').doc(aptId).collection('prices').doc(id).update({ date, maxPrice: max, minPrice: min });
+      if (isGuest) guestDB.updatePrice(aptId, id, { date, maxPrice: max, minPrice: min });
+      else await db.collection('apartments').doc(aptId).collection('prices').doc(id).update({ date, maxPrice: max, minPrice: min });
       closeModal('editPriceModal');
       showToast('수정되었습니다.');
       await loadPrices();
@@ -1016,12 +1048,13 @@
     });
     document.getElementById('saveInfoBtn').addEventListener('click', async () => {
       const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteJongno','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
-      const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      const data = {};
       fields.forEach(k => { data[k] = document.getElementById('e_'+k)?.value.trim() || null; });
-      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(data, { merge: true });
+      if (isGuest) guestDB.setInfo(aptId, data);
+      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
       detailInfo = { ...detailInfo, ...data };
       renderDetailView();
-      document.getElementById('editInfoBtn').click(); // cancel edit mode
+      document.getElementById('editInfoBtn').click();
       showToast('상세 정보가 저장되었습니다.');
     });
 
@@ -1035,7 +1068,8 @@
       const content = document.getElementById('memoInput').value.trim();
       if (!content) return showToast('메모 내용을 입력해주세요.', 'error');
       if (content.length > 5000) return showToast('5000자를 초과할 수 없습니다.', 'error');
-      await db.collection('apartments').doc(aptId).collection('memos').add({
+      if (isGuest) guestDB.addMemo(aptId, content);
+      else await db.collection('apartments').doc(aptId).collection('memos').add({
         content, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -1060,12 +1094,15 @@
       if (!confirm(`'${apartment.name}'을(를) 삭제하시겠습니까?\n시세, 메모 등 모든 데이터가 삭제됩니다.`)) return;
       showLoading();
       try {
-        // 서브컬렉션 삭제
-        for (const col of ['prices','memos','info']) {
-          const snap = await db.collection('apartments').doc(aptId).collection(col).get();
-          for (const d of snap.docs) await d.ref.delete();
+        if (isGuest) {
+          guestDB.deleteApartment(aptId);
+        } else {
+          for (const col of ['prices','memos','info']) {
+            const snap = await db.collection('apartments').doc(aptId).collection(col).get();
+            for (const d of snap.docs) await d.ref.delete();
+          }
+          await db.collection('apartments').doc(aptId).delete();
         }
-        await db.collection('apartments').doc(aptId).delete();
         hideLoading();
         showToast('삭제되었습니다.');
         setTimeout(() => window.location.href = 'dashboard.html', 800);
@@ -1099,8 +1136,12 @@
 
   async function deletePrice(id) {
     if (!confirm('이 시세 데이터를 삭제하시겠습니까?')) return;
-    await db.collection('apartments').doc(aptId).collection('prices').doc(id).delete();
-    await db.collection('apartments').doc(aptId).update({ priceCount: firebase.firestore.FieldValue.increment(-1) });
+    if (isGuest) {
+      guestDB.deletePrice(aptId, id);
+    } else {
+      await db.collection('apartments').doc(aptId).collection('prices').doc(id).delete();
+      await db.collection('apartments').doc(aptId).update({ priceCount: firebase.firestore.FieldValue.increment(-1) });
+    }
     showToast('삭제되었습니다.');
     await loadPrices();
   }
@@ -1114,7 +1155,8 @@
   async function saveEditMemo(id) {
     const content = document.getElementById(`memoEditText_${id}`).value.trim();
     if (!content) return showToast('내용을 입력해주세요.', 'error');
-    await db.collection('apartments').doc(aptId).collection('memos').doc(id).update({
+    if (isGuest) guestDB.updateMemo(aptId, id, content);
+    else await db.collection('apartments').doc(aptId).collection('memos').doc(id).update({
       content, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     showToast('메모가 수정되었습니다.');
@@ -1122,7 +1164,8 @@
   }
   async function deleteMemo(id) {
     if (!confirm('이 메모를 삭제하시겠습니까?')) return;
-    await db.collection('apartments').doc(aptId).collection('memos').doc(id).delete();
+    if (isGuest) guestDB.deleteMemo(aptId, id);
+    else await db.collection('apartments').doc(aptId).collection('memos').doc(id).delete();
     showToast('삭제되었습니다.');
     await loadMemos();
   }
