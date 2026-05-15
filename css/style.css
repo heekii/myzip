@@ -77,11 +77,14 @@ ul, ol { list-style: none; }
   overflow-y: auto;
 }
 .sidebar-logo {
-  padding: 20px 20px 16px;
+  height: var(--header-height);
+  padding: 0 20px;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 10px;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .sidebar-logo .logo-icon { font-size: 1.5rem; }
 .sidebar-logo { transition: opacity var(--transition); }
