@@ -221,7 +221,7 @@
     btn.disabled = true;
     try {
       await currentUser.updateProfile({ displayName: name });
-      await db.collection('users').doc(currentUser.uid).update({ name });
+      await db.collection('users').doc(currentUser.uid).set({ name }, { merge: true });
       document.getElementById('profileName').textContent = name;
       document.getElementById('profileAvatar').textContent = getInitial(name, currentUser.email);
       showProfileAlert('이름이 저장되었습니다.');
