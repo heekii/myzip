@@ -228,7 +228,10 @@
 
               <!-- 수정 모드 -->
               <div id="infoEditMode" class="hidden">
-                <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🚇 교통</h4>
+                <div class="flex justify-between items-center mb-3">
+                  <h4 class="text-xs text-muted font-semibold" style="letter-spacing:0.05em;text-transform:uppercase">🚇 교통</h4>
+                  <button type="button" class="btn btn-secondary btn-xs" id="autoStationBtn">역 자동 검색</button>
+                </div>
                 <div class="form-row">
                   <div class="form-group"><label class="form-label">가장 가까운 역</label><input type="text" id="e_nearStation" class="form-input" placeholder="예: 신반포역 3호선" /></div>
                   <div class="form-group"><label class="form-label">역까지 도보 거리(m)</label><input type="number" id="e_stationDist" class="form-input" placeholder="예: 350" /></div>
@@ -556,6 +559,7 @@
     const snap = await db.collection('apartments').doc(aptId).collection('info').doc('detail').get();
     detailInfo = snap.exists ? snap.data() : {};
     renderDetailView();
+    autoFillMissingInfo(); // 빈 필드 백그라운드 자동 조회 (await 없음)
   }
 
   const facingMap = { south:'남향', 'south-east':'남동향', 'south-west':'남서향', east:'동향', west:'서향', north:'북향' };
@@ -712,87 +716,200 @@
     } catch(e) { return null; }
   }
 
-  // ── 법정동코드(lawdCd) 확보 (좌표 → coord2regioncode) ──
+  // ── 법정동코드 확보 (저장된 값 우선, 없으면 좌표 → coord2regioncode) ──
   async function getAptLawdCd() {
-    if (apartment.lawdCd) return apartment.lawdCd;
+    if (apartment.lawdCd && apartment.bjdCode) return apartment.lawdCd;
     try {
       const loc = await getAptLatLng();
-      if (!loc) return null;
+      if (!loc) return apartment.lawdCd || null;
       const res = await fetch(
         `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${loc.lng}&y=${loc.lat}`,
         { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
       );
       const data = await res.json();
       const bRegion = (data.documents || []).find(r => r.region_type === 'B');
-      if (!bRegion?.code) return null;
+      if (!bRegion?.code) return apartment.lawdCd || null;
       const lawdCd = bRegion.code.substring(0, 5);
+      const bjdCode = bRegion.code;
       apartment.lawdCd = lawdCd;
-      await db.collection('apartments').doc(aptId).update({ lawdCd });
+      apartment.bjdCode = bjdCode;
+      await db.collection('apartments').doc(aptId).update({ lawdCd, bjdCode });
       return lawdCd;
-    } catch(e) { return null; }
+    } catch(e) { return apartment.lawdCd || null; }
   }
 
-  // ── 업무지구 소요시간 자동 계산 ──
+  // ── 누락 필드 자동 보완 (페이지 로드 시 백그라운드 실행) ──
+  async function autoFillMissingInfo() {
+    const tasks = [];
+    if (!detailInfo.nearStation)    tasks.push(autoFetchNearestStation());
+    if (!detailInfo.commuteGangnam) tasks.push(autoFetchCommute());
+    if (!detailInfo.schoolName)     tasks.push(autoFetchSchool());
+    if (!detailInfo.floorAreaRatio) tasks.push(autoFetchKaptInfo());
+    if (tasks.length > 0) await Promise.allSettled(tasks);
+  }
+
+  // ── 가장 가까운 역 + 역세권 여부 (Kakao SW8, 500m 기준) ──
+  async function autoFetchNearestStation() {
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) return;
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SW8&x=${loc.lng}&y=${loc.lat}&radius=1500&sort=distance&size=1`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      );
+      const data = await res.json();
+      const station = data.documents?.[0];
+      if (!station) return;
+      const dist = parseInt(station.distance);
+      const updates = {
+        nearStation: station.place_name,
+        stationDist: dist,
+        isStationZone: dist <= 500 ? 'yes' : 'no'
+      };
+      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      Object.assign(detailInfo, updates);
+      renderDetailView();
+    } catch(e) {}
+  }
+
+  // ── 업무지구 소요시간 (ODsay) ──
+  async function autoFetchCommute() {
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) return;
+      const entries = await Promise.all(
+        Object.entries(COMMUTE_STATIONS).map(async ([key, st]) => {
+          try {
+            const url = `https://api.odsay.com/v1/api/searchPubTransPathR?apiKey=${encodeURIComponent(ODSAY_KEY)}&SX=${loc.lng}&SY=${loc.lat}&EX=${st.lng}&EY=${st.lat}&SearchType=0`;
+            const d = await fetch(url).then(r => r.json());
+            const mins = d.result?.path?.[0]?.info?.totalTime;
+            return [key, mins != null ? `${mins}분` : null];
+          } catch(e) { return [key, null]; }
+        })
+      );
+      const keyMap = { gangnam: 'commuteGangnam', yeouido: 'commuteYeouido', jongno: 'commuteJongno' };
+      const updates = {};
+      entries.forEach(([key, time]) => { if (time) updates[keyMap[key]] = time; });
+      if (!Object.keys(updates).length) return;
+      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      Object.assign(detailInfo, updates);
+      renderDetailView();
+    } catch(e) {}
+  }
+
+  // ── 인근 초등학교 (Kakao SC4) ──
+  async function autoFetchSchool() {
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) return;
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SC4&x=${loc.lng}&y=${loc.lat}&radius=1500&size=15`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      );
+      const data = await res.json();
+      const school = (data.documents || []).find(p => p.place_name.includes('초등학교'));
+      if (!school) return;
+      const updates = { schoolName: school.place_name };
+      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      Object.assign(detailInfo, updates);
+      renderDetailView();
+    } catch(e) {}
+  }
+
+  // ── 용적률/건폐율 (K-Apt API) ──
+  async function autoFetchKaptInfo() {
+    try {
+      await getAptLawdCd();
+      const bjdCode = apartment.bjdCode;
+      if (!bjdCode) return;
+
+      // 단지코드 확보: 저장된 값 우선
+      let kaptCode = apartment.kaptCode;
+      if (!kaptCode) {
+        const listRes = await fetch(
+          `https://apis.data.go.kr/1613000/KaptInfoService2/getKaptList2?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&bjdCode=${bjdCode}&numOfRows=100&_type=json`
+        );
+        const listData = await listRes.json();
+        let items = listData.response?.body?.items?.item || [];
+        if (!Array.isArray(items)) items = items ? [items] : [];
+        const norm = s => s.replace(/\s/g, '');
+        const aptName = norm(apartment.name);
+        const matched = items.find(item => {
+          const n = norm(item.kaptName || '');
+          return n.includes(aptName) || aptName.includes(n);
+        });
+        if (!matched?.kaptCode) return;
+        kaptCode = matched.kaptCode;
+        apartment.kaptCode = kaptCode;
+        await db.collection('apartments').doc(aptId).update({ kaptCode }).catch(() => {});
+      }
+
+      const infoRes = await fetch(
+        `https://apis.data.go.kr/1613000/KaptBasicInfoService1/getKaptBassInfo?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&kaptCode=${kaptCode}&_type=json`
+      );
+      const infoData = await infoRes.json();
+      const info = infoData.response?.body?.item;
+      if (!info) return;
+      const updates = {};
+      if (info.kaptdacPurpRate) updates.floorAreaRatio = Math.round(parseFloat(info.kaptdacPurpRate));
+      if (info.kaptdacFilRa)    updates.buildingCoverage = Math.round(parseFloat(info.kaptdacFilRa));
+      if (!Object.keys(updates).length) return;
+      await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(updates, { merge: true });
+      Object.assign(detailInfo, updates);
+      renderDetailView();
+    } catch(e) {}
+  }
+
+  // ── 업무지구 자동 계산 버튼 (수정 모드) ──
   async function autoCalcCommute() {
     const btn = document.getElementById('autoCommuteBtn');
     btn.disabled = true;
     btn.textContent = '계산 중...';
     try {
-      const loc = await getAptLatLng();
-      if (!loc) { showToast('위치 정보를 찾을 수 없습니다.', 'error'); return; }
-
-      const entries = await Promise.all(
-        Object.entries(COMMUTE_STATIONS).map(async ([key, st]) => {
-          try {
-            const url = `https://api.odsay.com/v1/api/searchPubTransPathR?apiKey=${encodeURIComponent(ODSAY_KEY)}&SX=${loc.lng}&SY=${loc.lat}&EX=${st.lng}&EY=${st.lat}&SearchType=0`;
-            const data = await fetch(url).then(r => r.json());
-            const mins = data.result?.path?.[0]?.info?.totalTime;
-            return [key, mins != null ? `${mins}분` : null];
-          } catch(e) { return [key, null]; }
-        })
-      );
-
-      const fieldMap = { gangnam: 'e_commuteGangnam', yeouido: 'e_commuteYeouido', jongno: 'e_commuteJongno' };
-      let filled = 0;
-      entries.forEach(([key, time]) => {
-        if (!time) return;
-        const el = document.getElementById(fieldMap[key]);
-        if (el) { el.value = time; filled++; }
+      await autoFetchCommute();
+      ['commuteGangnam','commuteYeouido','commuteJongno'].forEach(k => {
+        const el = document.getElementById('e_' + k);
+        if (el && detailInfo[k]) el.value = detailInfo[k];
       });
-      if (filled > 0) showToast(`${filled}개 업무지구 소요시간 자동 입력`);
-      else showToast('소요시간을 가져오지 못했습니다.', 'error');
+      showToast(detailInfo.commuteGangnam ? '업무지구 소요시간 자동 입력' : '소요시간을 가져오지 못했습니다.', detailInfo.commuteGangnam ? 'success' : 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = '자동 계산';
     }
   }
 
-  // ── 인근 초등학교 자동 검색 ──
+  // ── 인근 초등학교 검색 버튼 (수정 모드) ──
   async function autoFindSchool() {
     const btn = document.getElementById('autoSchoolBtn');
     btn.disabled = true;
     btn.textContent = '검색 중...';
     try {
-      const loc = await getAptLatLng();
-      if (!loc) { showToast('위치 정보를 찾을 수 없습니다.', 'error'); return; }
-
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SC4&x=${loc.lng}&y=${loc.lat}&radius=1500&size=15`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      );
-      const data = await res.json();
-      const schools = (data.documents || []).filter(p => p.place_name.includes('초등학교'));
-      if (schools.length > 0) {
-        document.getElementById('e_schoolName').value = schools[0].place_name;
-        showToast(`인근 초등학교 검색 완료: ${schools[0].place_name} (${schools[0].distance}m)`, 'info');
-      } else {
-        showToast('1.5km 내 초등학교를 찾지 못했습니다.', 'error');
-      }
-    } catch(e) {
-      showToast('학교 검색 중 오류가 발생했습니다.', 'error');
+      await autoFetchSchool();
+      const el = document.getElementById('e_schoolName');
+      if (el && detailInfo.schoolName) el.value = detailInfo.schoolName;
+      showToast(detailInfo.schoolName ? `초등학교: ${detailInfo.schoolName}` : '초등학교를 찾지 못했습니다.', detailInfo.schoolName ? 'info' : 'error');
     } finally {
       btn.disabled = false;
       btn.textContent = '인근 검색';
+    }
+  }
+
+  // ── 역 자동 검색 버튼 (수정 모드) ──
+  async function autoStationSearch() {
+    const btn = document.getElementById('autoStationBtn');
+    btn.disabled = true;
+    btn.textContent = '검색 중...';
+    try {
+      await autoFetchNearestStation();
+      const map = { nearStation: 'e_nearStation', stationDist: 'e_stationDist', isStationZone: 'e_isStationZone' };
+      Object.entries(map).forEach(([k, elId]) => {
+        const el = document.getElementById(elId);
+        if (el && detailInfo[k] != null) el.value = detailInfo[k];
+      });
+      showToast(detailInfo.nearStation ? `가장 가까운 역: ${detailInfo.nearStation} (${detailInfo.stationDist}m)` : '인근 지하철역을 찾지 못했습니다.', detailInfo.nearStation ? 'info' : 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '역 자동 검색';
     }
   }
 
@@ -933,7 +1050,8 @@
     // 실거래가 조회
     document.getElementById('fetchRealTxBtn').addEventListener('click', fetchRealTx);
 
-    // 업무지구 자동 계산 / 인근 초등학교 자동 검색
+    // 교통/업무지구/초등학교 자동 조회 버튼
+    document.getElementById('autoStationBtn').addEventListener('click', autoStationSearch);
     document.getElementById('autoCommuteBtn').addEventListener('click', autoCalcCommute);
     document.getElementById('autoSchoolBtn').addEventListener('click', autoFindSchool);
   }
