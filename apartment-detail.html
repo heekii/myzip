@@ -616,7 +616,25 @@
 
   // ── 국토교통부 실거래가 조회 ──
   async function fetchRealTx() {
-    const lawdCd = apartment?.lawdCd;
+    let lawdCd = apartment?.lawdCd;
+
+    // lawdCd 미저장 단지: Kakao 주소검색으로 b_code 확보 후 저장
+    if (!lawdCd && apartment.address) {
+      try {
+        const res = await fetch(
+          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}`,
+          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+        );
+        const data = await res.json();
+        const bCode = data.documents?.[0]?.address?.b_code;
+        if (bCode) {
+          lawdCd = bCode.substring(0, 5);
+          apartment.lawdCd = lawdCd;
+          await db.collection('apartments').doc(aptId).update({ lawdCd });
+        }
+      } catch(e) { /* 무시 */ }
+    }
+
     if (!lawdCd) {
       document.getElementById('realTxEmpty').classList.remove('hidden');
       return;
