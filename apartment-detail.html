@@ -47,7 +47,7 @@
       </div>
     </header>
 
-    <main class="page-content">
+    <main class="page-content" style="max-width:1000px">
 
       <!-- 아파트 헤더 -->
       <div class="apt-detail-header">
@@ -80,16 +80,11 @@
         </div>
       </div>
 
-      <!-- 탭 -->
+      <!-- 섹션 -->
       <div id="mainTabs">
-        <div class="tabs">
-          <button type="button" class="tab-btn active" data-tab="tabPrice">📈 시세 트래킹</button>
-          <button type="button" class="tab-btn" data-tab="tabInfo">🏗️ 상세 정보</button>
-          <button type="button" class="tab-btn" data-tab="tabMemo">📝 메모</button>
-        </div>
 
-        <!-- ============ 탭1: 시세 트래킹 ============ -->
-        <div class="tab-content active" id="tabPrice">
+        <!-- ============ 시세 트래킹 ============ -->
+        <div id="tabPrice">
 
           <!-- 시세 입력 -->
           <div class="card mb-4">
@@ -188,8 +183,8 @@
           </div>
         </div>
 
-        <!-- ============ 탭2: 상세 정보 ============ -->
-        <div class="tab-content" id="tabInfo">
+        <!-- ============ 상세 정보 ============ -->
+        <div id="tabInfo" style="padding-top:24px">
           <div class="card">
             <div class="card-header">
               <h3 class="card-title">단지 상세 정보</h3>
@@ -269,8 +264,8 @@
           </div>
         </div>
 
-        <!-- ============ 탭3: 메모 ============ -->
-        <div class="tab-content" id="tabMemo">
+        <!-- ============ 메모 ============ -->
+        <div id="tabMemo" style="padding-top:24px">
           <!-- 메모 작성 -->
           <div class="card mb-4">
             <div class="card-header"><h3 class="card-title">메모 작성</h3></div>
@@ -374,7 +369,6 @@
   requireAuth(async user => {
     currentUser = user;
     initSidebar();
-    initTabs('#mainTabs');
     await loadApartment();
     setupListeners();
   });
