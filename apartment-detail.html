@@ -147,7 +147,7 @@
             <div class="card-header">
               <h3 class="card-title">입력 내역</h3>
             </div>
-            <div class="card-body" style="padding:0">
+            <div class="card-body" style="padding:0 16px 12px">
               <div id="priceTableWrapper" class="table-wrapper">
                 <table>
                   <thead>
@@ -237,15 +237,24 @@
                   <div class="form-group"><label class="form-label">역세권 여부</label><select id="e_isStationZone" class="form-input"><option value="">선택</option><option value="yes">역세권</option><option value="no">비역세권</option></select></div>
                   <div class="form-group"><label class="form-label">향/조망</label><select id="e_southFacing" class="form-input"><option value="">선택</option><option value="south">남향</option><option value="south-east">남동향</option><option value="south-west">남서향</option><option value="east">동향</option><option value="west">서향</option><option value="north">북향</option></select></div>
                 </div>
-                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🗺️ 업무지구 접근성</h4>
+                <div class="flex justify-between items-center mt-2 mb-2">
+                  <h4 class="text-xs text-muted font-semibold" style="letter-spacing:0.05em;text-transform:uppercase">🗺️ 업무지구 접근성</h4>
+                  <button type="button" class="btn btn-secondary btn-xs" id="autoCommuteBtn">자동 계산</button>
+                </div>
                 <div class="form-row">
                   <div class="form-group"><label class="form-label">강남역까지</label><input type="text" id="e_commuteGangnam" class="form-input" placeholder="예: 지하철 25분" /></div>
                   <div class="form-group"><label class="form-label">여의도역까지</label><input type="text" id="e_commuteYeouido" class="form-input" placeholder="예: 지하철 15분" /></div>
                 </div>
                 <div class="form-group"><label class="form-label">종로3가역까지</label><input type="text" id="e_commuteJongno" class="form-input" placeholder="예: 지하철 25분" /></div>
-                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
+                <div class="flex justify-between items-center mt-2 mb-2">
+                  <h4 class="text-xs text-muted font-semibold" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
+                  <button type="button" class="btn btn-secondary btn-xs" id="autoSchoolBtn">인근 검색</button>
+                </div>
                 <div class="form-group"><label class="form-label">초등학교 배정</label><input type="text" id="e_schoolName" class="form-input" placeholder="예: 반포초등학교" /></div>
-                <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
+                <div class="flex justify-between items-center mt-2 mb-2">
+                  <h4 class="text-xs text-muted font-semibold" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
+                </div>
+                <div class="form-hint mb-2" style="margin-top:-4px">용적률·건폐율은 <a href="https://www.k-apt.go.kr/" target="_blank" rel="noopener" style="color:var(--primary)">K-Apt</a> 단지정보에서 확인 후 입력해주세요</div>
                 <div class="form-row">
                   <div class="form-group"><label class="form-label">용적률(%)</label><input type="number" id="e_floorAreaRatio" class="form-input" placeholder="예: 269" /></div>
                   <div class="form-group"><label class="form-label">건폐율(%)</label><input type="number" id="e_buildingCoverage" class="form-input" placeholder="예: 19" /></div>
@@ -354,6 +363,13 @@
 <script src="js/firebase-config.js"></script>
 <script>
   const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
+  const ODSAY_KEY = '5QCQZr+fdJhD2Blcte1aWA';
+  const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974';
+  const COMMUTE_STATIONS = {
+    gangnam: { label: '강남역',   lng: 127.027621, lat: 37.497942 },
+    yeouido: { label: '여의도역',  lng: 126.924171, lat: 37.521574 },
+    jongno:  { label: '종로3가역', lng: 126.991854, lat: 37.571607 }
+  };
 
   const aptId = getParam('id');
   let currentUser = null;
@@ -605,10 +621,6 @@
       document.getElementById('realTxEmpty').classList.remove('hidden');
       return;
     }
-    if (MOLIT_API_KEY === 'YOUR_API_KEY_HERE') {
-      showToast('API 키를 설정해주세요.', 'error');
-      return;
-    }
 
     const loading = document.getElementById('realTxLoading');
     const empty = document.getElementById('realTxEmpty');
@@ -618,22 +630,27 @@
     list.innerHTML = '';
 
     const now = new Date();
-    const months = [0, 1, 2].map(i => {
+    const months = [0, 1, 2, 3].map(i => {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`;
     });
 
     try {
       const results = await Promise.all(months.map(ym =>
-        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTrade?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=100&_type=json`)
+        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=100&_type=json`)
           .then(r => r.json())
-          .then(r => r.response?.body?.items?.item || [])
+          .then(r => {
+            let items = r.response?.body?.items?.item || [];
+            if (!Array.isArray(items)) items = items ? [items] : [];
+            return items;
+          })
           .catch(() => [])
       ));
 
-      const aptName = apartment.name.replace(/\s/g, '');
+      const norm = s => s.replace(/\s/g, '');
+      const aptName = norm(apartment.name);
       const all = results.flat().filter(tx => {
-        const txName = (tx['아파트'] || '').replace(/\s/g, '');
+        const txName = norm(tx.aptNm || '');
         return txName.includes(aptName) || aptName.includes(txName);
       });
 
@@ -644,8 +661,8 @@
       }
 
       all.sort((a, b) => {
-        const da = `${a['년']}-${String(a['월']).padStart(2,'0')}-${String(a['일']).padStart(2,'0')}`;
-        const db2 = `${b['년']}-${String(b['월']).padStart(2,'0')}-${String(b['일']).padStart(2,'0')}`;
+        const da = `${a.dealYear}-${String(a.dealMonth).padStart(2,'0')}-${String(a.dealDay).padStart(2,'0')}`;
+        const db2 = `${b.dealYear}-${String(b.dealMonth).padStart(2,'0')}-${String(b.dealDay).padStart(2,'0')}`;
         return db2.localeCompare(da);
       });
 
@@ -663,10 +680,10 @@
             <tbody>
               ${all.slice(0, 20).map(tx => `
                 <tr>
-                  <td>${tx['년']}.${String(tx['월']).padStart(2,'0')}.${String(tx['일']).padStart(2,'0')}</td>
-                  <td>${parseFloat(tx['전용면적']).toFixed(1)}</td>
-                  <td>${tx['층']}층</td>
-                  <td style="font-weight:600;color:var(--primary)">${formatPrice(String(tx['거래금액']).replace(/,/g, '').trim())}</td>
+                  <td>${tx.dealYear}.${String(tx.dealMonth).padStart(2,'0')}.${String(tx.dealDay).padStart(2,'0')}</td>
+                  <td>${parseFloat(tx.excluUseAr).toFixed(1)}</td>
+                  <td>${tx.floor}층</td>
+                  <td style="font-weight:600;color:var(--primary)">${formatPrice(String(tx.dealAmount).replace(/,/g, '').trim())}</td>
                 </tr>`).join('')}
             </tbody>
           </table>
@@ -674,6 +691,85 @@
     } catch (e) {
       loading.classList.add('hidden');
       empty.classList.remove('hidden');
+    }
+  }
+
+  // ── 위치 좌표 확보 (저장된 lat/lng 또는 주소 재지오코딩) ──
+  async function getAptLatLng() {
+    if (apartment.lat && apartment.lng) return { lat: apartment.lat, lng: apartment.lng };
+    if (!apartment.address) return null;
+    try {
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      );
+      const data = await res.json();
+      const doc = data.documents?.[0];
+      return doc ? { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } : null;
+    } catch(e) { return null; }
+  }
+
+  // ── 업무지구 소요시간 자동 계산 ──
+  async function autoCalcCommute() {
+    const btn = document.getElementById('autoCommuteBtn');
+    btn.disabled = true;
+    btn.textContent = '계산 중...';
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) { showToast('위치 정보를 찾을 수 없습니다.', 'error'); return; }
+
+      const entries = await Promise.all(
+        Object.entries(COMMUTE_STATIONS).map(async ([key, st]) => {
+          try {
+            const url = `https://api.odsay.com/v1/api/searchPubTransPathR?apiKey=${encodeURIComponent(ODSAY_KEY)}&SX=${loc.lng}&SY=${loc.lat}&EX=${st.lng}&EY=${st.lat}&SearchType=0`;
+            const data = await fetch(url).then(r => r.json());
+            const mins = data.result?.path?.[0]?.info?.totalTime;
+            return [key, mins != null ? `${mins}분` : null];
+          } catch(e) { return [key, null]; }
+        })
+      );
+
+      const fieldMap = { gangnam: 'e_commuteGangnam', yeouido: 'e_commuteYeouido', jongno: 'e_commuteJongno' };
+      let filled = 0;
+      entries.forEach(([key, time]) => {
+        if (!time) return;
+        const el = document.getElementById(fieldMap[key]);
+        if (el) { el.value = time; filled++; }
+      });
+      if (filled > 0) showToast(`${filled}개 업무지구 소요시간 자동 입력`);
+      else showToast('소요시간을 가져오지 못했습니다.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '자동 계산';
+    }
+  }
+
+  // ── 인근 초등학교 자동 검색 ──
+  async function autoFindSchool() {
+    const btn = document.getElementById('autoSchoolBtn');
+    btn.disabled = true;
+    btn.textContent = '검색 중...';
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) { showToast('위치 정보를 찾을 수 없습니다.', 'error'); return; }
+
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SC4&x=${loc.lng}&y=${loc.lat}&radius=1500&size=15`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      );
+      const data = await res.json();
+      const schools = (data.documents || []).filter(p => p.place_name.includes('초등학교'));
+      if (schools.length > 0) {
+        document.getElementById('e_schoolName').value = schools[0].place_name;
+        showToast(`인근 초등학교 검색 완료: ${schools[0].place_name} (${schools[0].distance}m)`, 'info');
+      } else {
+        showToast('1.5km 내 초등학교를 찾지 못했습니다.', 'error');
+      }
+    } catch(e) {
+      showToast('학교 검색 중 오류가 발생했습니다.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '인근 검색';
     }
   }
 
@@ -813,6 +909,10 @@
 
     // 실거래가 조회
     document.getElementById('fetchRealTxBtn').addEventListener('click', fetchRealTx);
+
+    // 업무지구 자동 계산 / 인근 초등학교 자동 검색
+    document.getElementById('autoCommuteBtn').addEventListener('click', autoCalcCommute);
+    document.getElementById('autoSchoolBtn').addEventListener('click', autoFindSchool);
   }
 
   // ── 전역 함수 (onclick용) ──
