@@ -910,11 +910,11 @@
 
     // 아파트 삭제
     document.getElementById('deleteAptBtn').addEventListener('click', async () => {
-      if (!confirm(`'${apartment.name}'을(를) 삭제하시겠습니까?\n시세, 뉴스, 메모 등 모든 데이터가 삭제됩니다.`)) return;
+      if (!confirm(`'${apartment.name}'을(를) 삭제하시겠습니까?\n시세, 메모 등 모든 데이터가 삭제됩니다.`)) return;
       showLoading();
       try {
         // 서브컬렉션 삭제
-        for (const col of ['prices','news','memos','info']) {
+        for (const col of ['prices','memos','info']) {
           const snap = await db.collection('apartments').doc(aptId).collection(col).get();
           for (const d of snap.docs) await d.ref.delete();
         }

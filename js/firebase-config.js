@@ -41,7 +41,6 @@ db.settings({ experimentalForceLongPolling: true });
 //    - userId, name, address, region, createdAt
 //    - info/detail: { school, stationDistance, floorAreaRatio, ... }
 //    - prices/{priceId}: { date, maxPrice, minPrice, createdAt }
-//    - news/{newsId}: { title, summary, url, publishedAt, createdAt }
 //    - memos/{memoId}: { content, createdAt, updatedAt }
 // ============================================================
 
@@ -188,7 +187,7 @@ function showGuestBanner(msg = '게스트 모드입니다. 데이터는 저장�
 
 // 장식성 이모지·아이콘 스크린리더 숨김, 버튼 레이블 보완
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.nav-icon, .empty-icon, .stat-icon, .news-thumb').forEach(el => {
+  document.querySelectorAll('.nav-icon, .empty-icon, .stat-icon').forEach(el => {
     el.setAttribute('aria-hidden', 'true');
   });
   document.querySelectorAll('.hamburger').forEach(el => {

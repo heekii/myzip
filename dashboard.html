@@ -87,12 +87,6 @@
             <div class="stat-change neutral">건 입력</div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon">📰</div>
-            <div class="stat-label">저장된 뉴스</div>
-            <div class="stat-value" id="statNews">0</div>
-            <div class="stat-change neutral">건</div>
-          </div>
-          <div class="stat-card">
             <div class="stat-icon">📝</div>
             <div class="stat-label">작성 메모</div>
             <div class="stat-value" id="statMemo">0</div>
@@ -133,23 +127,6 @@
           </div>
         </div>
 
-        <!-- 최근 뉴스 -->
-        <div class="mt-6">
-          <div class="section-header">
-            <h2 class="section-title">최근 저장된 뉴스</h2>
-          </div>
-          <div class="card">
-            <div class="card-body">
-              <div id="newsFeed">
-                <div class="empty-state" style="padding:30px 20px">
-                  <div class="empty-icon" style="font-size:2rem">📰</div>
-                  <div class="empty-title">뉴스가 없습니다</div>
-                  <div class="empty-desc">아파트 상세 페이지에서 뉴스를 저장해보세요.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
       </main>
     </div>
@@ -188,7 +165,6 @@
         document.getElementById('aptEmpty').classList.remove('hidden');
         document.getElementById('statTotal').textContent = '-';
         document.getElementById('statThisMonth').textContent = '-';
-        document.getElementById('statNews').textContent = '-';
         document.getElementById('statMemo').textContent = '-';
         return;
       }
@@ -215,7 +191,7 @@
         apartments.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         document.getElementById('statTotal').textContent = apartments.length;
         renderApartments();
-        await Promise.all([loadStats(), loadRecentNews()]);
+        await loadStats();
       } catch (err) {
         console.error(err);
         document.getElementById('aptLoading').classList.add('hidden');
@@ -270,55 +246,24 @@
     }
 
     async function loadStats() {
-      let monthCount = 0, newsCount = 0, memoCount = 0;
+      let monthCount = 0, memoCount = 0;
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
 
       const promises = apartments.map(async apt => {
         try {
-          const [prices, news, memos] = await Promise.all([
+          const [prices, memos] = await Promise.all([
             db.collection('apartments').doc(apt.id).collection('prices')
               .where('date', '>=', monthStart).get(),
-            db.collection('apartments').doc(apt.id).collection('news').get(),
             db.collection('apartments').doc(apt.id).collection('memos').get()
           ]);
           monthCount += prices.size;
-          newsCount += news.size;
           memoCount += memos.size;
         } catch(e) {}
       });
       await Promise.all(promises);
       document.getElementById('statThisMonth').textContent = monthCount;
-      document.getElementById('statNews').textContent = newsCount;
       document.getElementById('statMemo').textContent = memoCount;
-    }
-
-    async function loadRecentNews() {
-      const newsFeed = document.getElementById('newsFeed');
-      const results = await Promise.all(
-        apartments.slice(0, 5).map(apt =>
-          db.collection('apartments').doc(apt.id).collection('news')
-            .orderBy('createdAt', 'desc').limit(3).get()
-            .then(snap => snap.docs.map(d => ({ ...d.data(), aptName: apt.name, id: d.id, aptId: apt.id })))
-            .catch(() => [])
-        )
-      );
-      let allNews = results.flat();
-      if (allNews.length === 0) return;
-      allNews.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      allNews = allNews.slice(0, 8);
-      newsFeed.innerHTML = allNews.map(n => `
-        <div class="news-item">
-          <div class="news-thumb">📰</div>
-          <div class="news-body">
-            <a href="${n.url || '#'}" target="_blank" rel="noopener" class="news-title">${n.title}</a>
-            <div class="news-meta">
-              <span>${n.aptName}</span>
-              <span>·</span>
-              <span>${tsToDate(n.createdAt)}</span>
-            </div>
-          </div>
-        </div>`).join('');
     }
 
     document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {

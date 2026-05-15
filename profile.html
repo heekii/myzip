@@ -149,7 +149,7 @@
     </div>
     <div class="modal-body">
       <div class="alert alert-error">
-        이 작업은 되돌릴 수 없습니다. 등록한 아파트, 시세, 뉴스, 메모 등 모든 데이터가 영구적으로 삭제됩니다.
+        이 작업은 되돌릴 수 없습니다. 등록한 아파트, 시세, 메모 등 모든 데이터가 영구적으로 삭제됩니다.
       </div>
       <div class="form-group" style="margin-bottom:0">
         <label class="form-label">확인을 위해 비밀번호를 입력해주세요</label>
@@ -302,7 +302,7 @@
       // 모든 데이터 삭제
       const apts = await db.collection('apartments').where('userId', '==', currentUser.uid).get();
       for (const apt of apts.docs) {
-        for (const col of ['prices','news','memos','info']) {
+        for (const col of ['prices','memos','info']) {
           const sub = await apt.ref.collection(col).get();
           for (const d of sub.docs) await d.ref.delete();
         }
