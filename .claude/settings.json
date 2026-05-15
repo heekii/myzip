@@ -18,7 +18,10 @@
       "Bash(node --version)",
       "Bash(html-validate *)",
       "Bash(ls *)",
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Bash(curl -s \"https://myzip-de785.web.app/*\")",
+      "Bash(curl -s -H \"Authorization: KakaoAK *\" \"https://dapi.kakao.com/*\")",
+      "Bash(curl -s \"https://firestore.googleapis.com/*\")"
     ],
     "deny": [
       "Bash(git push --force*)",
