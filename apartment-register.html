@@ -26,6 +26,7 @@
       <nav class="sidebar-nav" aria-label="사이드바 메뉴">
         <div class="nav-section-title">메뉴</div>
         <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+        <a href="compare.html" class="nav-item"><span class="nav-icon">📋</span> 단지 비교</a>
         <a href="apartment-register.html" class="nav-item active"><span class="nav-icon">➕</span> 아파트 등록</a>
         <div class="nav-section-title" style="margin-top:12px">계정</div>
         <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
@@ -77,6 +78,8 @@
             <input type="hidden" id="aptYear" />
             <input type="hidden" id="aptUnits" />
             <input type="hidden" id="aptMaxFloor" />
+            <input type="hidden" id="aptLat" />
+            <input type="hidden" id="aptLng" />
 
             <button type="button" class="btn btn-primary btn-full" id="registerBtn"
               style="padding:14px;font-size:1rem;border-radius:12px;margin-top:4px">
@@ -94,6 +97,7 @@
     <nav class="bottom-nav" aria-label="하단 내비게이션">
       <ul class="bottom-nav-list">
         <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+        <li><a href="compare.html" class="bottom-nav-item"><span class="nav-icon">📋</span>비교</a></li>
         <li><a href="apartment-register.html" class="bottom-nav-item active"><span class="nav-icon">➕</span>등록</a></li>
         <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
       </ul>
@@ -167,6 +171,8 @@
           completionYear: document.getElementById('aptYear').value || null,
           totalUnits: document.getElementById('aptUnits').value || null,
           maxFloor: document.getElementById('aptMaxFloor').value || null,
+          lat: parseFloat(document.getElementById('aptLat').value) || null,
+          lng: parseFloat(document.getElementById('aptLng').value) || null,
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
           priceCount: 0
         });
@@ -266,10 +272,16 @@
           const sido = addr.region_1depth_name || '';
           const sigungu = addr.region_2depth_name || '';
           document.getElementById('aptRegion').value = `${sido} ${sigungu}`.trim();
+          // 좌표 저장 (단지비교 활용)
+          document.getElementById('aptLat').value = result[0].y || '';
+          document.getElementById('aptLng').value = result[0].x || '';
           const bCode = addr.b_code || '';
           if (bCode) {
             document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
-            await fetchAptDetailFromMOLIT(name, bCode.substring(0, 5));
+            await Promise.all([
+              fetchAptDetailFromMOLIT(name, bCode.substring(0, 5)),
+              tryFetchAptUnits(name, bCode)
+            ]);
             return;
           }
         }
@@ -307,6 +319,41 @@
         showPreview(aptName, document.getElementById('aptAddress').value, metaParts.join(' · '));
       } else {
         showPreview(aptName, document.getElementById('aptAddress').value, '');
+      }
+    }
+
+    async function tryFetchAptUnits(aptName, bCode) {
+      const norm = s => s.replace(/[\s()（）아파트]/g, '').toLowerCase();
+      const normName = norm(aptName);
+      try {
+        // AptListService2로 법정동 코드 기반 아파트 목록 조회 → kaptCode 확보
+        const listUrl = `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&bjdongCode=${bCode}&numOfRows=200&_type=json`;
+        const listRes = await fetch(listUrl);
+        const listData = await listRes.json();
+        let items = listData.response?.body?.items?.item || [];
+        if (!Array.isArray(items)) items = items ? [items] : [];
+        const match = items.find(it => {
+          const n = norm(it.kaptName || '');
+          return n === normName || n.includes(normName) || normName.includes(n);
+        });
+        if (!match?.kaptCode) return;
+        // kaptCode로 세대수 조회
+        const infoUrl = `https://apis.data.go.kr/1613000/AptBasisInfoService/getAprtInfo?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&kaptCode=${match.kaptCode}&_type=json`;
+        const infoRes = await fetch(infoUrl);
+        const infoData = await infoRes.json();
+        const info = infoData.response?.body?.items?.item;
+        if (!info) return;
+        const units = info.kaptHoCount;
+        if (units) {
+          document.getElementById('aptUnits').value = units;
+          // 이미 보여주는 미리보기에 세대수 반영
+          const metaEl = document.getElementById('previewMeta');
+          if (metaEl && metaEl.textContent) {
+            metaEl.textContent = metaEl.textContent + ` · ${Number(units).toLocaleString()}세대`;
+          }
+        }
+      } catch(e) {
+        // 세대수 API 실패 시 무시 (수기 입력)
       }
     }
 

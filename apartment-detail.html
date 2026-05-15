@@ -25,6 +25,7 @@
     <nav class="sidebar-nav" aria-label="사이드바 메뉴">
       <div class="nav-section-title">메뉴</div>
       <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+      <a href="compare.html" class="nav-item"><span class="nav-icon">📋</span> 단지 비교</a>
       <a href="apartment-register.html" class="nav-item"><span class="nav-icon">➕</span> 아파트 등록</a>
       <div class="nav-section-title" style="margin-top:12px">계정</div>
       <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
@@ -212,7 +213,7 @@
                 <div class="info-grid mb-4">
                   <div class="info-item"><div class="info-label">강남역까지</div><div class="info-value" id="v_commuteGangnam">-</div></div>
                   <div class="info-item"><div class="info-label">여의도역까지</div><div class="info-value" id="v_commuteYeouido">-</div></div>
-                  <div class="info-item" style="grid-column:span 2"><div class="info-label">광화문역까지</div><div class="info-value" id="v_commuteGwanghwamun">-</div></div>
+                  <div class="info-item" style="grid-column:span 2"><div class="info-label">종로3가역까지</div><div class="info-value" id="v_commuteJongno">-</div></div>
                 </div>
                 <h4 class="text-xs text-muted font-semibold mb-3" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
                 <div class="info-grid mb-4">
@@ -246,7 +247,7 @@
                   <div class="form-group"><label class="form-label">강남역까지</label><input type="text" id="e_commuteGangnam" class="form-input" placeholder="예: 지하철 25분" /></div>
                   <div class="form-group"><label class="form-label">여의도역까지</label><input type="text" id="e_commuteYeouido" class="form-input" placeholder="예: 지하철 15분" /></div>
                 </div>
-                <div class="form-group"><label class="form-label">광화문역까지</label><input type="text" id="e_commuteGwanghwamun" class="form-input" placeholder="예: 버스+지하철 30분" /></div>
+                <div class="form-group"><label class="form-label">종로3가역까지</label><input type="text" id="e_commuteJongno" class="form-input" placeholder="예: 지하철 25분" /></div>
                 <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏫 교육</h4>
                 <div class="form-group"><label class="form-label">초등학교 배정</label><input type="text" id="e_schoolName" class="form-input" placeholder="예: 반포초등학교" /></div>
                 <h4 class="text-xs text-muted font-semibold mb-3 mt-2" style="letter-spacing:0.05em;text-transform:uppercase">🏗️ 건축</h4>
@@ -315,6 +316,7 @@
   <nav class="bottom-nav" aria-label="하단 내비게이션">
     <ul class="bottom-nav-list">
       <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+      <li><a href="compare.html" class="bottom-nav-item"><span class="nav-icon">📋</span>비교</a></li>
       <li><a href="apartment-register.html" class="bottom-nav-item"><span class="nav-icon">➕</span>등록</a></li>
       <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
     </ul>
@@ -555,7 +557,7 @@
     document.getElementById('v_southFacing').textContent = facingMap[detailInfo.southFacing] || '-';
     document.getElementById('v_commuteGangnam').textContent = val('commuteGangnam');
     document.getElementById('v_commuteYeouido').textContent = val('commuteYeouido');
-    document.getElementById('v_commuteGwanghwamun').textContent = val('commuteGwanghwamun');
+    document.getElementById('v_commuteJongno').textContent = detailInfo.commuteJongno || detailInfo.commuteGwanghwamun || '-';
     document.getElementById('v_schoolName').textContent = val('schoolName');
     document.getElementById('v_floorAreaRatio').textContent = detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-';
     document.getElementById('v_buildingCoverage').textContent = detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-';
@@ -743,7 +745,7 @@
       document.getElementById('editInfoBtn').classList.add('hidden');
       document.getElementById('cancelInfoBtn').classList.remove('hidden');
       // 기존 값 채우기
-      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteGwanghwamun','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteJongno','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
       fields.forEach(k => { const el = document.getElementById('e_'+k); if (el) el.value = detailInfo[k] || ''; });
     });
     document.getElementById('cancelInfoBtn').addEventListener('click', () => {
@@ -753,7 +755,7 @@
       document.getElementById('cancelInfoBtn').classList.add('hidden');
     });
     document.getElementById('saveInfoBtn').addEventListener('click', async () => {
-      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteGwanghwamun','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
+      const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteJongno','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
       const data = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
       fields.forEach(k => { data[k] = document.getElementById('e_'+k)?.value.trim() || null; });
       await db.collection('apartments').doc(aptId).collection('info').doc('detail').set(data, { merge: true });

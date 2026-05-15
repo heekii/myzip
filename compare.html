@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>단지 비교 — 내집마련 트래커</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- 사이드바 -->
+  <aside class="sidebar" id="sidebar" aria-label="사이드바 메뉴">
+    <a href="dashboard.html" class="sidebar-logo" aria-label="홈으로">
+      <div class="logo-icon" aria-hidden="true">🏠</div>
+      <div>
+        <div class="logo-text">내집마련 트래커</div>
+        <div class="logo-sub">부동산 시세 추적 서비스</div>
+      </div>
+    </a>
+    <nav class="sidebar-nav" aria-label="사이드바 메뉴">
+      <div class="nav-section-title">메뉴</div>
+      <a href="dashboard.html" class="nav-item"><span class="nav-icon">📊</span> 대시보드</a>
+      <a href="compare.html" class="nav-item active"><span class="nav-icon">📋</span> 단지 비교</a>
+      <a href="apartment-register.html" class="nav-item"><span class="nav-icon">➕</span> 아파트 등록</a>
+      <div class="nav-section-title" style="margin-top:12px">계정</div>
+      <a href="profile.html" class="nav-item"><span class="nav-icon">👤</span> 프로필/설정</a>
+      <button type="button" class="nav-item w-full" id="sidebarLogoutBtn" style="text-align:left">
+        <span class="nav-icon">🚪</span> 로그아웃
+      </button>
+    </nav>
+  </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <button type="button" class="hamburger" id="hamburger">☰</button>
+        <span class="header-title">단지 비교</span>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">단지 비교</h1>
+          <p class="page-subtitle">등록한 아파트들을 한눈에 비교해보세요. 셀을 클릭하면 직접 입력할 수 있어요.</p>
+        </div>
+      </div>
+
+      <!-- 범례 -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-muted)">
+          <span style="display:inline-block;width:12px;height:12px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:2px"></span>
+          노란 행 = 강조 표시
+        </div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">셀 클릭 → 직접 입력 → Enter 또는 클릭 밖 → 자동 저장</div>
+      </div>
+
+      <!-- 비교 테이블 -->
+      <div class="compare-table-wrapper" id="compareWrapper">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th class="col-sticky" style="min-width:140px">단지</th>
+              <th style="min-width:50px">순위</th>
+              <th style="min-width:80px">지역</th>
+              <th style="min-width:55px">연식</th>
+              <th style="min-width:65px">세대수</th>
+              <th style="min-width:65px">평형</th>
+              <th style="min-width:80px">구조</th>
+              <th style="min-width:80px">매매가</th>
+              <th style="min-width:80px">전세가</th>
+              <th style="min-width:130px">업무지구 접근성</th>
+              <th style="min-width:110px">배정 초등학교</th>
+              <th style="min-width:160px">주변 호재</th>
+              <th style="min-width:180px">내 의견</th>
+              <th style="min-width:60px">강조</th>
+            </tr>
+          </thead>
+          <tbody id="compareBody">
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 빈 상태 -->
+      <div id="compareEmpty" class="empty-state hidden" style="margin-top:40px">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">등록된 아파트가 없습니다</div>
+        <div class="empty-desc">아파트를 등록하면 이 페이지에서 비교할 수 있어요.</div>
+        <a href="apartment-register.html" class="btn btn-primary" style="margin-top:16px">아파트 등록하기</a>
+      </div>
+    </main>
+  </div>
+
+  <nav class="bottom-nav" aria-label="하단 내비게이션">
+    <ul class="bottom-nav-list">
+      <li><a href="dashboard.html" class="bottom-nav-item"><span class="nav-icon">📊</span>대시보드</a></li>
+      <li><a href="compare.html" class="bottom-nav-item active"><span class="nav-icon">📋</span>비교</a></li>
+      <li><a href="apartment-register.html" class="bottom-nav-item"><span class="nav-icon">➕</span>등록</a></li>
+      <li><a href="profile.html" class="bottom-nav-item"><span class="nav-icon">👤</span>프로필</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- 업무지구 편집 팝업 -->
+<div class="commute-popup-overlay hidden" id="commuteOverlay">
+  <div class="commute-popup">
+    <h4>업무지구 소요시간 입력</h4>
+    <div class="form-group">
+      <label>강남역까지</label>
+      <input type="text" id="cp_gangnam" placeholder="예: 지하철 33분" />
+    </div>
+    <div class="form-group">
+      <label>여의도역까지</label>
+      <input type="text" id="cp_yeouido" placeholder="예: 지하철 5분" />
+    </div>
+    <div class="form-group">
+      <label>종로3가역까지</label>
+      <input type="text" id="cp_jongno" placeholder="예: 버스 19분" />
+    </div>
+    <div class="commute-popup-btns">
+      <button type="button" class="btn btn-secondary btn-sm" id="commuteCancel">취소</button>
+      <button type="button" class="btn btn-primary btn-sm" id="commuteSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<script src="js/firebase-config.js"></script>
+<script>
+  let currentUser = null;
+  let apartments = [];
+  let commuteEditAptId = null;
+
+  requireAuth(async user => {
+    currentUser = user;
+    initSidebar();
+    await loadCompare();
+  });
+
+  async function loadCompare() {
+    showLoading();
+    try {
+      const snap = await db.collection('apartments')
+        .where('userId', '==', currentUser.uid)
+        .get();
+
+      if (snap.empty) {
+        document.getElementById('compareWrapper').classList.add('hidden');
+        document.getElementById('compareEmpty').classList.remove('hidden');
+        hideLoading();
+        return;
+      }
+
+      const rawApts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // info/detail 병렬 로드
+      await Promise.all(rawApts.map(async apt => {
+        const infoSnap = await db.collection('apartments').doc(apt.id)
+          .collection('info').doc('detail').get();
+        apt.info = infoSnap.exists ? infoSnap.data() : {};
+      }));
+
+      // 순위 오름차순 정렬 (순위 없는 것은 뒤로)
+      rawApts.sort((a, b) => {
+        const ra = parseInt(a.info.compareRank) || 9999;
+        const rb = parseInt(b.info.compareRank) || 9999;
+        if (ra !== rb) return ra - rb;
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
+
+      apartments = rawApts;
+      renderTable();
+    } catch(e) {
+      console.error(e);
+      showToast('데이터를 불러오지 못했습니다.', 'error');
+    }
+    hideLoading();
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('compareBody');
+    if (apartments.length === 0) {
+      document.getElementById('compareWrapper').classList.add('hidden');
+      document.getElementById('compareEmpty').classList.remove('hidden');
+      return;
+    }
+
+    tbody.innerHTML = apartments.map(apt => {
+      const info = apt.info || {};
+      const rank = info.compareRank ? parseInt(info.compareRank) : null;
+      const highlight = info.compareHighlight === true;
+
+      const rankBadge = rank
+        ? `<span class="rank-badge rank-badge-${rank <= 3 ? rank : ''}">${rank}</span>`
+        : `<span style="color:var(--text-muted);font-size:0.75rem">-</span>`;
+
+      const commuteGangnam = info.commuteGangnam || '';
+      const commuteYeouido = info.commuteYeouido || '';
+      const commuteJongno = info.commuteJongno || info.commuteGwanghwamun || '';
+      const hasCommute = commuteGangnam || commuteYeouido || commuteJongno;
+
+      return `<tr class="${highlight ? 'compare-row-highlight' : ''}" data-id="${apt.id}">
+        <td class="col-sticky">
+          <div class="compare-apt-name">
+            <a href="apartment-detail.html?id=${apt.id}">${esc(apt.name)}</a>
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${esc(apt.address || apt.region || '')}</div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${rankBadge}
+            <span class="compare-editable ${!rank ? 'is-empty' : ''}"
+              data-id="${apt.id}" data-field="compareRank" data-type="number"
+              title="클릭하여 순위 입력">${rank ? '' : '입력'}</span>
+          </div>
+        </td>
+        <td style="color:var(--text-secondary);font-size:0.78rem">${esc(apt.region || '-')}</td>
+        <td style="font-size:0.85rem">${apt.completionYear ? apt.completionYear + '년' : '-'}</td>
+        <td style="font-size:0.85rem">${apt.totalUnits ? Number(apt.totalUnits).toLocaleString() + '세대' : editableCell(apt.id, 'totalUnitsManual', info.totalUnitsManual, 'text')}</td>
+        <td>${editableCell(apt.id, 'targetSize', info.targetSize, 'text', '예: 84㎡')}</td>
+        <td>${editableCell(apt.id, 'structure', info.structure, 'text', '예: 계단식 방3화2')}</td>
+        <td class="compare-price">${apt.latestMaxPrice ? formatPrice(apt.latestMaxPrice) : editableCell(apt.id, 'manualPrice', info.manualPrice, 'text', '예: 5.6억')}</td>
+        <td>${editableCell(apt.id, 'jeonsePrice', info.jeonsePrice, 'text', '예: 4.2억')}</td>
+        <td>
+          <div class="compare-commute-lines compare-editable${!hasCommute ? ' is-empty' : ''}"
+            data-id="${apt.id}" data-field="commute" data-type="commute"
+            title="클릭하여 소요시간 입력">
+            ${hasCommute
+              ? `<span>강남역: ${esc(commuteGangnam || '-')}</span><span>여의도역: ${esc(commuteYeouido || '-')}</span><span>종로3가: ${esc(commuteJongno || '-')}</span>`
+              : '클릭하여 입력'}
+          </div>
+        </td>
+        <td>${editableCell(apt.id, 'schoolName', info.schoolName, 'text', '예: 반포초등학교')}</td>
+        <td>${editableCell(apt.id, 'nearbyPositive', info.nearbyPositive, 'textarea', '재건축/지하철/학군 호재 등')}</td>
+        <td>${editableCell(apt.id, 'myOpinion', info.myOpinion, 'textarea', '이 단지에 대한 종합 의견')}</td>
+        <td>
+          <button type="button" class="btn btn-secondary btn-xs highlight-toggle" data-id="${apt.id}" data-on="${highlight}">
+            ${highlight ? '★' : '☆'}
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    attachEvents();
+  }
+
+  function editableCell(aptId, field, value, type, placeholder) {
+    const empty = !value || String(value).trim() === '';
+    if (type === 'textarea') {
+      return `<div class="compare-editable${empty ? ' is-empty' : ''}"
+        data-id="${aptId}" data-field="${field}" data-type="textarea"
+        title="클릭하여 입력">${empty ? '입력' : esc(String(value)).replace(/\n/g, '<br>')}</div>`;
+    }
+    return `<span class="compare-editable${empty ? ' is-empty' : ''}"
+      data-id="${aptId}" data-field="${field}" data-type="${type}"
+      data-placeholder="${esc(placeholder || '')}"
+      title="클릭하여 입력">${empty ? '입력' : esc(String(value))}</span>`;
+  }
+
+  function attachEvents() {
+    // 인라인 편집 셀
+    document.querySelectorAll('.compare-editable').forEach(el => {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const type = this.dataset.type;
+        const aptId = this.dataset.id;
+        const field = this.dataset.field;
+        const apt = apartments.find(a => a.id === aptId);
+        const currentVal = apt?.info?.[field] || apt?.[field] || '';
+
+        if (type === 'commute') {
+          openCommutePopup(aptId, apt?.info || {});
+          return;
+        }
+        if (type === 'textarea') {
+          startTextareaEdit(this, aptId, field, currentVal);
+          return;
+        }
+        startInlineEdit(this, aptId, field, currentVal);
+      });
+    });
+
+    // 강조 토글
+    document.querySelectorAll('.highlight-toggle').forEach(btn => {
+      btn.addEventListener('click', async function() {
+        const aptId = this.dataset.id;
+        const isOn = this.dataset.on === 'true';
+        await saveInfoField(aptId, 'compareHighlight', !isOn);
+        const apt = apartments.find(a => a.id === aptId);
+        if (apt) apt.info.compareHighlight = !isOn;
+        renderTable();
+      });
+    });
+  }
+
+  function startInlineEdit(el, aptId, field, currentVal) {
+    const placeholder = el.dataset.placeholder || '';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentVal;
+    input.placeholder = placeholder;
+    input.className = 'compare-inline-input';
+    el.replaceWith(input);
+    input.focus();
+
+    const save = async () => {
+      const newVal = input.value.trim();
+      await saveInfoField(aptId, field, newVal || null);
+      const apt = apartments.find(a => a.id === aptId);
+      if (apt) {
+        if (field in apt) apt[field] = newVal;
+        else apt.info[field] = newVal;
+      }
+      renderTable();
+    };
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.removeEventListener('blur', save); renderTable(); } });
+  }
+
+  function startTextareaEdit(el, aptId, field, currentVal) {
+    const textarea = document.createElement('textarea');
+    textarea.value = currentVal;
+    textarea.className = 'compare-inline-textarea';
+    el.replaceWith(textarea);
+    textarea.focus();
+
+    const save = async () => {
+      const newVal = textarea.value.trim();
+      await saveInfoField(aptId, field, newVal || null);
+      const apt = apartments.find(a => a.id === aptId);
+      if (apt) apt.info[field] = newVal;
+      renderTable();
+    };
+    textarea.addEventListener('blur', save);
+    textarea.addEventListener('keydown', e => { if (e.key === 'Escape') { textarea.removeEventListener('blur', save); renderTable(); } });
+  }
+
+  function openCommutePopup(aptId, info) {
+    commuteEditAptId = aptId;
+    document.getElementById('cp_gangnam').value = info.commuteGangnam || '';
+    document.getElementById('cp_yeouido').value = info.commuteYeouido || '';
+    document.getElementById('cp_jongno').value = info.commuteJongno || info.commuteGwanghwamun || '';
+    document.getElementById('commuteOverlay').classList.remove('hidden');
+    document.getElementById('cp_gangnam').focus();
+  }
+
+  document.getElementById('commuteCancel').addEventListener('click', () => {
+    document.getElementById('commuteOverlay').classList.add('hidden');
+    commuteEditAptId = null;
+  });
+
+  document.getElementById('commuteSave').addEventListener('click', async () => {
+    if (!commuteEditAptId) return;
+    const gangnam = document.getElementById('cp_gangnam').value.trim();
+    const yeouido = document.getElementById('cp_yeouido').value.trim();
+    const jongno = document.getElementById('cp_jongno').value.trim();
+
+    await db.collection('apartments').doc(commuteEditAptId)
+      .collection('info').doc('detail').set({
+        commuteGangnam: gangnam || null,
+        commuteYeouido: yeouido || null,
+        commuteJongno: jongno || null,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+    const apt = apartments.find(a => a.id === commuteEditAptId);
+    if (apt) {
+      apt.info.commuteGangnam = gangnam;
+      apt.info.commuteYeouido = yeouido;
+      apt.info.commuteJongno = jongno;
+    }
+    document.getElementById('commuteOverlay').classList.add('hidden');
+    commuteEditAptId = null;
+    renderTable();
+    showToast('소요시간이 저장되었습니다.');
+  });
+
+  // 팝업 바깥 클릭 닫기
+  document.getElementById('commuteOverlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.add('hidden');
+      commuteEditAptId = null;
+    }
+  });
+
+  async function saveInfoField(aptId, field, value) {
+    // apartments 루트 필드 vs info/detail 필드 분기
+    const rootFields = ['totalUnits'];
+    if (rootFields.includes(field) || field === 'totalUnitsManual') {
+      const saveField = field === 'totalUnitsManual' ? 'totalUnits' : field;
+      await db.collection('apartments').doc(aptId).update({ [saveField]: value });
+      const apt = apartments.find(a => a.id === aptId);
+      if (apt) apt[saveField] = value;
+    } else {
+      await db.collection('apartments').doc(aptId)
+        .collection('info').doc('detail').set(
+          { [field]: value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+      const apt = apartments.find(a => a.id === aptId);
+      if (apt) apt.info[field] = value;
+    }
+
+    // 순위 변경 시 테이블 재정렬
+    if (field === 'compareRank') {
+      apartments.sort((a, b) => {
+        const ra = parseInt(a.info.compareRank) || 9999;
+        const rb = parseInt(b.info.compareRank) || 9999;
+        if (ra !== rb) return ra - rb;
+        return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      });
+    }
+  }
+
+  function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      await auth.signOut();
+      window.location.href = 'index.html';
+    }
+  });
+</script>
+</body>
+</html>
