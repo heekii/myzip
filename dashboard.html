@@ -73,24 +73,24 @@
         </div>
 
         <!-- 통계 카드 -->
-        <div class="grid-4 mb-6" id="statsRow">
+        <div class="grid-3 mb-6" id="statsRow">
           <div class="stat-card">
             <div class="stat-icon">🏢</div>
-            <div class="stat-label">등록 아파트</div>
+            <div class="stat-label">관심 단지</div>
             <div class="stat-value" id="statTotal">0</div>
             <div class="stat-change neutral">개 등록됨</div>
           </div>
           <div class="stat-card">
             <div class="stat-icon">📈</div>
-            <div class="stat-label">이번 달 기록</div>
-            <div class="stat-value" id="statThisMonth">0</div>
-            <div class="stat-change neutral">건 입력</div>
+            <div class="stat-label">시세 상승</div>
+            <div class="stat-value" id="statUp" style="color:var(--danger)">-</div>
+            <div class="stat-change neutral">개 단지</div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon">📝</div>
-            <div class="stat-label">작성 메모</div>
-            <div class="stat-value" id="statMemo">0</div>
-            <div class="stat-change neutral">개</div>
+            <div class="stat-icon">📉</div>
+            <div class="stat-label">시세 하락</div>
+            <div class="stat-value" id="statDown" style="color:var(--primary)">-</div>
+            <div class="stat-change neutral">개 단지</div>
           </div>
         </div>
 
@@ -165,7 +165,8 @@
         document.getElementById('aptEmpty').classList.remove('hidden');
         document.getElementById('statTotal').textContent = '-';
         document.getElementById('statThisMonth').textContent = '-';
-        document.getElementById('statMemo').textContent = '-';
+        document.getElementById('statUp').textContent = '-';
+        document.getElementById('statDown').textContent = '-';
         return;
       }
       currentUser = user;
@@ -191,7 +192,7 @@
         apartments.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         document.getElementById('statTotal').textContent = apartments.length;
         renderApartments();
-        await loadStats();
+        loadStats();
       } catch (err) {
         console.error(err);
         document.getElementById('aptLoading').classList.add('hidden');
@@ -245,25 +246,18 @@
       }).join('');
     }
 
-    async function loadStats() {
-      let monthCount = 0, memoCount = 0;
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-
-      const promises = apartments.map(async apt => {
-        try {
-          const [prices, memos] = await Promise.all([
-            db.collection('apartments').doc(apt.id).collection('prices')
-              .where('date', '>=', monthStart).get(),
-            db.collection('apartments').doc(apt.id).collection('memos').get()
-          ]);
-          monthCount += prices.size;
-          memoCount += memos.size;
-        } catch(e) {}
+    function loadStats() {
+      let upCount = 0, downCount = 0;
+      apartments.forEach(apt => {
+        const latest = apt.latestMaxPrice;
+        const prev = apt.prevMaxPrice;
+        if (latest != null && prev != null) {
+          if (latest > prev) upCount++;
+          else if (latest < prev) downCount++;
+        }
       });
-      await Promise.all(promises);
-      document.getElementById('statThisMonth').textContent = monthCount;
-      document.getElementById('statMemo').textContent = memoCount;
+      document.getElementById('statUp').textContent = upCount;
+      document.getElementById('statDown').textContent = downCount;
     }
 
     document.getElementById('sidebarLogoutBtn').addEventListener('click', async () => {
