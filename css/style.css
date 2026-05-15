@@ -305,8 +305,8 @@ tbody tr:hover td { background: #FAFBFF; }
 .apt-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
 .apt-name { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .apt-address { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
-.apt-price-row { display: flex; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border-light); }
-.apt-price-item { flex: 1; }
+.apt-price-row { display: flex; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border-light); flex-wrap: wrap; }
+.apt-price-item { flex: 1; min-width: 65px; }
 .apt-price-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 500; }
 .apt-price-value { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
 .apt-price-value.up { color: var(--danger); }
@@ -765,6 +765,10 @@ tbody tr:hover td { background: #FAFBFF; }
 =========================== */
 @media (max-width: 1024px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+/* 사이드바(240px) + 콘텐츠 최소 너비 확보: 900px 이하에서 3열 → 2열 */
+@media (max-width: 900px) {
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 768px) {
   :root { --header-height: 56px; }
