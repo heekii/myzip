@@ -80,6 +80,9 @@
             <input type="hidden" id="aptMaxFloor" />
             <input type="hidden" id="aptLat" />
             <input type="hidden" id="aptLng" />
+            <input type="hidden" id="aptCommute_gangnam" />
+            <input type="hidden" id="aptCommute_yeouido" />
+            <input type="hidden" id="aptCommute_jongno" />
 
             <button type="button" class="btn btn-primary btn-full" id="registerBtn"
               style="padding:14px;font-size:1rem;border-radius:12px;margin-top:4px">
@@ -129,6 +132,12 @@
   <script src="js/firebase-config.js"></script>
   <script>
     const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
+    const ODSAY_KEY = '5QCQZr+fdJhD2Blcte1aWA';
+    const STATIONS = {
+      gangnam: { name: '강남역',   lng: 127.027621, lat: 37.497942 },
+      yeouido: { name: '여의도역',  lng: 126.924171, lat: 37.521574 },
+      jongno:  { name: '종로3가역', lng: 126.991854, lat: 37.571607 }
+    };
     let currentUser = null;
     let nameSearchTimer = null;
     let ps = null;
@@ -178,6 +187,9 @@
         });
 
         await db.collection('apartments').doc(ref.id).collection('info').doc('detail').set({
+          commuteGangnam: document.getElementById('aptCommute_gangnam').value || null,
+          commuteYeouido: document.getElementById('aptCommute_yeouido').value || null,
+          commuteJongno:  document.getElementById('aptCommute_jongno').value  || null,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -278,9 +290,12 @@
           const bCode = addr.b_code || '';
           if (bCode) {
             document.getElementById('aptLawdCd').value = bCode.substring(0, 5);
+            const lat = parseFloat(result[0].y);
+            const lng = parseFloat(result[0].x);
             await Promise.all([
               fetchAptDetailFromMOLIT(name, bCode.substring(0, 5)),
-              tryFetchAptUnits(name, bCode)
+              tryFetchAptUnits(name, bCode),
+              fetchCommuteTimes(lat, lng)
             ]);
             return;
           }
@@ -354,6 +369,37 @@
         }
       } catch(e) {
         // 세대수 API 실패 시 무시 (수기 입력)
+      }
+    }
+
+    async function fetchCommuteTimes(fromLat, fromLng) {
+      const entries = await Promise.all(
+        Object.entries(STATIONS).map(async ([key, station]) => {
+          try {
+            const url = `https://api.odsay.com/v1/api/searchPubTransPathR?apiKey=${encodeURIComponent(ODSAY_KEY)}&SX=${fromLng}&SY=${fromLat}&EX=${station.lng}&EY=${station.lat}&SearchType=0`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const mins = data.result?.path?.[0]?.info?.totalTime;
+            return [key, mins != null ? `${mins}분` : null];
+          } catch(e) {
+            return [key, null];
+          }
+        })
+      );
+
+      const commuteTexts = [];
+      entries.forEach(([key, time]) => {
+        if (!time) return;
+        document.getElementById(`aptCommute_${key}`).value = time;
+        commuteTexts.push(`${STATIONS[key].name} ${time}`);
+      });
+
+      if (commuteTexts.length > 0) {
+        const metaEl = document.getElementById('previewMeta');
+        if (metaEl) {
+          const existing = metaEl.textContent;
+          metaEl.textContent = existing ? `${existing} · ${commuteTexts.join(' · ')}` : commuteTexts.join(' · ');
+        }
       }
     }
 
