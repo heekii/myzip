@@ -616,25 +616,7 @@
 
   // ── 국토교통부 실거래가 조회 ──
   async function fetchRealTx() {
-    let lawdCd = apartment?.lawdCd;
-
-    // lawdCd 미저장 단지: Kakao 주소검색으로 b_code 확보 후 저장
-    if (!lawdCd && apartment.address) {
-      try {
-        const res = await fetch(
-          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}`,
-          { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-        );
-        const data = await res.json();
-        const bCode = data.documents?.[0]?.address?.b_code;
-        if (bCode) {
-          lawdCd = bCode.substring(0, 5);
-          apartment.lawdCd = lawdCd;
-          await db.collection('apartments').doc(aptId).update({ lawdCd });
-        }
-      } catch(e) { /* 무시 */ }
-    }
-
+    const lawdCd = await getAptLawdCd();
     if (!lawdCd) {
       document.getElementById('realTxEmpty').classList.remove('hidden');
       return;
@@ -712,18 +694,41 @@
     }
   }
 
-  // ── 위치 좌표 확보 (저장된 lat/lng 또는 주소 재지오코딩) ──
+  // ── 위치 좌표 확보 (저장된 lat/lng → 아파트명 키워드검색) ──
   async function getAptLatLng() {
     if (apartment.lat && apartment.lng) return { lat: apartment.lat, lng: apartment.lng };
-    if (!apartment.address) return null;
     try {
       const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}`,
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(apartment.name)}&size=5`,
         { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
       );
       const data = await res.json();
-      const doc = data.documents?.[0];
-      return doc ? { lat: parseFloat(doc.y), lng: parseFloat(doc.x) } : null;
+      const doc = (data.documents || []).find(p => p.category_name?.endsWith('아파트'));
+      if (!doc) return null;
+      const lat = parseFloat(doc.y), lng = parseFloat(doc.x);
+      apartment.lat = lat; apartment.lng = lng;
+      await db.collection('apartments').doc(aptId).update({ lat, lng });
+      return { lat, lng };
+    } catch(e) { return null; }
+  }
+
+  // ── 법정동코드(lawdCd) 확보 (좌표 → coord2regioncode) ──
+  async function getAptLawdCd() {
+    if (apartment.lawdCd) return apartment.lawdCd;
+    try {
+      const loc = await getAptLatLng();
+      if (!loc) return null;
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${loc.lng}&y=${loc.lat}`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      );
+      const data = await res.json();
+      const bRegion = (data.documents || []).find(r => r.region_type === 'B');
+      if (!bRegion?.code) return null;
+      const lawdCd = bRegion.code.substring(0, 5);
+      apartment.lawdCd = lawdCd;
+      await db.collection('apartments').doc(aptId).update({ lawdCd });
+      return lawdCd;
     } catch(e) { return null; }
   }
 
