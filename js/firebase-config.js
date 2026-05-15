@@ -159,7 +159,7 @@ function requireAuth(callback, { allowGuest = false } = {}) {
     } else if (allowGuest) {
       callback(null);
     } else {
-      window.location.href = 'index.html';
+      window.location.href = 'index.html?login=1';
     }
   });
 }
@@ -181,7 +181,7 @@ function showGuestBanner(msg = '게스트 모드입니다. 데이터는 저장�
   const banner = document.createElement('div');
   banner.id = 'guestBanner';
   banner.className = 'guest-banner';
-  banner.innerHTML = `<span>👀 ${msg}</span><a href="index.html#signup" class="btn btn-primary btn-sm">회원가입</a>`;
+  banner.innerHTML = `<span>👀 ${msg}</span><a href="index.html?login=1#signup" class="btn btn-primary btn-sm">회원가입</a>`;
   document.querySelector('.page-content, .auth-page, main')?.prepend(banner);
 }
 

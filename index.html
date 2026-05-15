@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>내집마련 트래커 — 로그인</title>
   <link rel="stylesheet" href="css/style.css" />
+  <!-- ?login 파라미터 없으면 대시보드로 바로 이동 (게스트 모드) -->
+  <script>if (!location.search.includes('login')) window.location.replace('dashboard.html');</script>
   <!-- Firebase Compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
