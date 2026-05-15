@@ -601,7 +601,7 @@
     if (!isNaN(mins)) {
       el.textContent = mins;
       el.className = 'commute-mins' + (mins <= 25 ? ' fast' : mins <= 40 ? ' medium' : ' slow');
-      if (unitEl) unitEl.textContent = '분 (대중교통)';
+      if (unitEl) unitEl.textContent = '분';
     } else {
       el.textContent = raw;
       el.className = 'commute-mins';
