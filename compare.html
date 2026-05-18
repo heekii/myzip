@@ -55,35 +55,14 @@
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap">
         <div style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:var(--text-muted)">
           <span style="display:inline-block;width:12px;height:12px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:2px"></span>
-          노란 행 = 강조 표시
+          노란 열(단지) = 강조 표시
         </div>
         <div style="font-size:0.8rem;color:var(--text-muted)">셀 클릭 → 직접 입력 → Enter 또는 클릭 밖 → 자동 저장</div>
       </div>
 
       <!-- 비교 테이블 -->
       <div class="compare-table-wrapper" id="compareWrapper">
-        <table class="compare-table">
-          <thead>
-            <tr>
-              <th class="col-sticky" style="min-width:140px">단지</th>
-              <th style="min-width:50px">순위</th>
-              <th style="min-width:80px">지역</th>
-              <th style="min-width:55px">연식</th>
-              <th style="min-width:65px">세대수</th>
-              <th style="min-width:65px">평형</th>
-              <th style="min-width:80px">구조</th>
-              <th style="min-width:80px">매매가</th>
-              <th style="min-width:80px">전세가</th>
-              <th style="min-width:130px">업무지구 접근성</th>
-              <th style="min-width:110px">배정 초등학교</th>
-              <th style="min-width:160px">주변 호재</th>
-              <th style="min-width:180px">내 의견</th>
-              <th style="min-width:60px">강조</th>
-            </tr>
-          </thead>
-          <tbody id="compareBody">
-          </tbody>
-        </table>
+        <table class="compare-table"></table>
       </div>
 
       <!-- 빈 상태 -->
@@ -186,70 +165,87 @@
   }
 
   function renderTable() {
-    const tbody = document.getElementById('compareBody');
+    const wrapper = document.getElementById('compareWrapper');
+    const empty = document.getElementById('compareEmpty');
     if (apartments.length === 0) {
-      document.getElementById('compareWrapper').classList.add('hidden');
-      document.getElementById('compareEmpty').classList.remove('hidden');
+      wrapper.classList.add('hidden');
+      empty.classList.remove('hidden');
       return;
     }
+    wrapper.classList.remove('hidden');
+    empty.classList.add('hidden');
 
-    tbody.innerHTML = apartments.map(apt => {
-      const info = apt.info || {};
-      const rank = info.compareRank ? parseInt(info.compareRank) : null;
-      const highlight = info.compareHighlight === true;
+    const table = wrapper.querySelector('.compare-table');
 
-      const rankBadge = rank
-        ? `<span class="rank-badge rank-badge-${rank <= 3 ? rank : ''}">${rank}</span>`
-        : `<span style="color:var(--text-muted);font-size:0.75rem">-</span>`;
+    const thead = `<thead><tr>
+      <th class="col-sticky col-label">항목</th>
+      ${apartments.map(apt => {
+        const on = apt.info?.compareHighlight === true;
+        return `<th${on ? ' class="apt-col-highlight"' : ''}>
+          <a href="apartment-detail.html?id=${apt.id}" class="compare-apt-link">${esc(apt.name)}</a>
+          <div class="compare-apt-addr">${esc(apt.address || apt.region || '')}</div>
+        </th>`;
+      }).join('')}
+    </tr></thead>`;
 
-      const commuteGangnam = info.commuteGangnam || '';
-      const commuteYeouido = info.commuteYeouido || '';
-      const commuteJongno = info.commuteJongno || info.commuteGwanghwamun || '';
-      const hasCommute = commuteGangnam || commuteYeouido || commuteJongno;
+    const ROWS = [
+      { label: '순위',     cells: apartments.map(apt => renderRankCell(apt)) },
+      { label: '지역',     cells: apartments.map(apt => `<span style="color:var(--text-secondary);font-size:0.82rem">${esc(apt.region || '-')}</span>`) },
+      { label: '연식',     cells: apartments.map(apt => `<span style="font-size:0.85rem">${apt.completionYear ? apt.completionYear + '년' : '-'}</span>`) },
+      { label: '세대수',   cells: apartments.map(apt => apt.totalUnits
+        ? `<span style="font-size:0.85rem">${Number(apt.totalUnits).toLocaleString()}세대</span>`
+        : editableCell(apt.id, 'totalUnitsManual', apt.info?.totalUnitsManual, 'text', '세대수 입력')) },
+      { label: '평형',     cells: apartments.map(apt => editableCell(apt.id, 'targetSize', apt.info?.targetSize, 'text', '예: 84㎡')) },
+      { label: '구조',     cells: apartments.map(apt => editableCell(apt.id, 'structure', apt.info?.structure, 'text', '예: 계단식 방3화2')) },
+      { label: '매매가',   cells: apartments.map(apt => apt.latestMaxPrice
+        ? `<span class="compare-price">${formatPrice(apt.latestMaxPrice)}</span>`
+        : editableCell(apt.id, 'manualPrice', apt.info?.manualPrice, 'text', '예: 5.6억')) },
+      { label: '전세가',   cells: apartments.map(apt => editableCell(apt.id, 'jeonsePrice', apt.info?.jeonsePrice, 'text', '예: 4.2억')) },
+      { label: '업무지구', cells: apartments.map(apt => renderCommuteCell(apt)) },
+      { label: '초등학교', cells: apartments.map(apt => editableCell(apt.id, 'schoolName', apt.info?.schoolName, 'text', '예: 반포초등학교')) },
+      { label: '주변 호재', cells: apartments.map(apt => editableCell(apt.id, 'nearbyPositive', apt.info?.nearbyPositive, 'textarea', '재건축/지하철/학군 호재 등')) },
+      { label: '내 의견',  cells: apartments.map(apt => editableCell(apt.id, 'myOpinion', apt.info?.myOpinion, 'textarea', '이 단지에 대한 종합 의견')) },
+      { label: '강조',     cells: apartments.map(apt => {
+        const on = apt.info?.compareHighlight === true;
+        return `<button type="button" class="btn btn-secondary btn-xs highlight-toggle" data-id="${apt.id}" data-on="${on}">${on ? '★' : '☆'}</button>`;
+      }) },
+    ];
 
-      return `<tr class="${highlight ? 'compare-row-highlight' : ''}" data-id="${apt.id}">
-        <td class="col-sticky">
-          <div class="compare-apt-name">
-            <a href="apartment-detail.html?id=${apt.id}">${esc(apt.name)}</a>
-          </div>
-          <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">${esc(apt.address || apt.region || '')}</div>
-        </td>
-        <td>
-          <div style="display:flex;align-items:center;gap:6px">
-            ${rankBadge}
-            <span class="compare-editable ${!rank ? 'is-empty' : ''}"
-              data-id="${apt.id}" data-field="compareRank" data-type="number"
-              title="클릭하여 순위 입력">${rank ? '' : '입력'}</span>
-          </div>
-        </td>
-        <td style="color:var(--text-secondary);font-size:0.78rem">${esc(apt.region || '-')}</td>
-        <td style="font-size:0.85rem">${apt.completionYear ? apt.completionYear + '년' : '-'}</td>
-        <td style="font-size:0.85rem">${apt.totalUnits ? Number(apt.totalUnits).toLocaleString() + '세대' : editableCell(apt.id, 'totalUnitsManual', info.totalUnitsManual, 'text')}</td>
-        <td>${editableCell(apt.id, 'targetSize', info.targetSize, 'text', '예: 84㎡')}</td>
-        <td>${editableCell(apt.id, 'structure', info.structure, 'text', '예: 계단식 방3화2')}</td>
-        <td class="compare-price">${apt.latestMaxPrice ? formatPrice(apt.latestMaxPrice) : editableCell(apt.id, 'manualPrice', info.manualPrice, 'text', '예: 5.6억')}</td>
-        <td>${editableCell(apt.id, 'jeonsePrice', info.jeonsePrice, 'text', '예: 4.2억')}</td>
-        <td>
-          <div class="compare-commute-lines compare-editable${!hasCommute ? ' is-empty' : ''}"
-            data-id="${apt.id}" data-field="commute" data-type="commute"
-            title="클릭하여 소요시간 입력">
-            ${hasCommute
-              ? `<span>강남역: ${esc(commuteGangnam || '-')}</span><span>여의도역: ${esc(commuteYeouido || '-')}</span><span>종로3가: ${esc(commuteJongno || '-')}</span>`
-              : '클릭하여 입력'}
-          </div>
-        </td>
-        <td>${editableCell(apt.id, 'schoolName', info.schoolName, 'text', '예: 반포초등학교')}</td>
-        <td>${editableCell(apt.id, 'nearbyPositive', info.nearbyPositive, 'textarea', '재건축/지하철/학군 호재 등')}</td>
-        <td>${editableCell(apt.id, 'myOpinion', info.myOpinion, 'textarea', '이 단지에 대한 종합 의견')}</td>
-        <td>
-          <button type="button" class="btn btn-secondary btn-xs highlight-toggle" data-id="${apt.id}" data-on="${highlight}">
-            ${highlight ? '★' : '☆'}
-          </button>
-        </td>
-      </tr>`;
-    }).join('');
+    const tbody = `<tbody>${ROWS.map(row => `
+      <tr>
+        <td class="col-sticky col-label">${row.label}</td>
+        ${row.cells.map((cell, i) => {
+          const on = apartments[i].info?.compareHighlight === true;
+          return `<td${on ? ' class="apt-col-highlight"' : ''}>${cell}</td>`;
+        }).join('')}
+      </tr>`).join('')}</tbody>`;
 
+    table.innerHTML = thead + tbody;
     attachEvents();
+  }
+
+  function renderRankCell(apt) {
+    const rank = apt.info?.compareRank ? parseInt(apt.info.compareRank) : null;
+    const badge = rank ? `<span class="rank-badge rank-badge-${rank <= 3 ? rank : ''}">${rank}</span>` : '';
+    return `<div style="display:flex;align-items:center;gap:6px">
+      ${badge}
+      <span class="compare-editable${!rank ? ' is-empty' : ''}"
+        data-id="${apt.id}" data-field="compareRank" data-type="number"
+        title="클릭하여 순위 입력">${rank ? '' : '입력'}</span>
+    </div>`;
+  }
+
+  function renderCommuteCell(apt) {
+    const info = apt.info || {};
+    const g = info.commuteGangnam || '';
+    const y = info.commuteYeouido || '';
+    const j = info.commuteJongno || info.commuteGwanghwamun || '';
+    const has = g || y || j;
+    return `<div class="compare-commute-lines compare-editable${!has ? ' is-empty' : ''}"
+      data-id="${apt.id}" data-field="commute" data-type="commute"
+      title="클릭하여 소요시간 입력">
+      ${has ? `<span>강남역: ${esc(g || '-')}</span><span>여의도역: ${esc(y || '-')}</span><span>종로3가: ${esc(j || '-')}</span>` : '클릭하여 입력'}
+    </div>`;
   }
 
   function editableCell(aptId, field, value, type, placeholder) {
