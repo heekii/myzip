@@ -175,7 +175,6 @@
           </div>
           <div class="card-body">
             <div class="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요.</div>
-            <div id="realTxLoading" class="hidden" style="text-align:center;padding:20px;color:var(--text-muted)">조회 중...</div>
             <div id="realTxEmpty" class="hidden" style="text-align:center;padding:20px;color:var(--text-muted)">
               실거래 데이터가 없거나 주소 검색으로 등록한 아파트가 아닙니다.
             </div>
@@ -423,8 +422,9 @@
         apartment = { id: snap.id, ...snap.data() };
       }
       renderHeader();
+      loadCachedRealTx(); // apartment 문서에 저장된 캐시를 즉시 표시
       await Promise.all([loadPrices(), loadDetailInfo(), loadMemos()]);
-      fetchRealTx(); // 메인 로드 완료 후 백그라운드 자동 조회
+      fetchRealTx(); // 백그라운드에서 최신 데이터 갱신
     } catch(e) { console.error(e); }
     finally { hideLoading(); }
   }
@@ -669,20 +669,54 @@
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // ── 국토교통부 실거래가 조회 ──
+  // ── 실거래가 렌더링 ──
+  function renderRealTxList(items) {
+    const empty = document.getElementById('realTxEmpty');
+    const list = document.getElementById('realTxList');
+    if (!items || items.length === 0) {
+      empty.classList.remove('hidden');
+      list.innerHTML = '';
+      return;
+    }
+    empty.classList.add('hidden');
+    list.innerHTML = `
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">거래일</th>
+              <th scope="col">면적(㎡)</th>
+              <th scope="col">층</th>
+              <th scope="col">실거래가</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(tx => `
+              <tr>
+                <td>${tx.dealYear}.${String(tx.dealMonth).padStart(2,'0')}.${String(tx.dealDay).padStart(2,'0')}</td>
+                <td>${parseFloat(tx.excluUseAr).toFixed(1)}</td>
+                <td>${tx.floor}층</td>
+                <td style="font-weight:600;color:var(--primary)">${formatPrice(String(tx.dealAmount).replace(/,/g, '').trim())}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  // ── 캐시된 실거래가 즉시 표시 (apartment 문서에서 읽음, 추가 요청 없음) ──
+  function loadCachedRealTx() {
+    if (isGuest) return;
+    const cache = apartment.realTxCache;
+    if (cache?.items?.length > 0) renderRealTxList(cache.items);
+  }
+
+  // ── 국토교통부 실거래가 조회 + 캐시 갱신 ──
   async function fetchRealTx() {
     const lawdCd = await getAptLawdCd();
     if (!lawdCd) {
       document.getElementById('realTxEmpty').classList.remove('hidden');
       return;
     }
-
-    const loading = document.getElementById('realTxLoading');
-    const empty = document.getElementById('realTxEmpty');
-    const list = document.getElementById('realTxList');
-    loading.classList.remove('hidden');
-    empty.classList.add('hidden');
-    list.innerHTML = '';
 
     const now = new Date();
     const months = [0, 1, 2, 3].map(i => {
@@ -709,43 +743,30 @@
         return txName.includes(aptName) || aptName.includes(txName);
       });
 
-      loading.classList.add('hidden');
-      if (all.length === 0) {
-        empty.classList.remove('hidden');
-        return;
-      }
-
       all.sort((a, b) => {
         const da = `${a.dealYear}-${String(a.dealMonth).padStart(2,'0')}-${String(a.dealDay).padStart(2,'0')}`;
         const db2 = `${b.dealYear}-${String(b.dealMonth).padStart(2,'0')}-${String(b.dealDay).padStart(2,'0')}`;
         return db2.localeCompare(da);
       });
 
-      list.innerHTML = `
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">거래일</th>
-                <th scope="col">면적(㎡)</th>
-                <th scope="col">층</th>
-                <th scope="col">실거래가</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${all.slice(0, 20).map(tx => `
-                <tr>
-                  <td>${tx.dealYear}.${String(tx.dealMonth).padStart(2,'0')}.${String(tx.dealDay).padStart(2,'0')}</td>
-                  <td>${parseFloat(tx.excluUseAr).toFixed(1)}</td>
-                  <td>${tx.floor}층</td>
-                  <td style="font-weight:600;color:var(--primary)">${formatPrice(String(tx.dealAmount).replace(/,/g, '').trim())}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`;
+      const toCache = all.slice(0, 20).map(tx => ({
+        dealYear: tx.dealYear, dealMonth: tx.dealMonth, dealDay: tx.dealDay,
+        excluUseAr: tx.excluUseAr, floor: tx.floor, dealAmount: tx.dealAmount
+      }));
+
+      renderRealTxList(toCache);
+
+      if (!isGuest) {
+        db.collection('apartments').doc(aptId).update({
+          realTxCache: { items: toCache, cachedAt: firebase.firestore.FieldValue.serverTimestamp() }
+        }).catch(() => {});
+        apartment.realTxCache = { items: toCache };
+      }
     } catch (e) {
-      loading.classList.add('hidden');
-      empty.classList.remove('hidden');
+      // 캐시가 있으면 그대로 유지, 없으면 빈 상태
+      if (!apartment.realTxCache?.items?.length) {
+        document.getElementById('realTxEmpty').classList.remove('hidden');
+      }
     }
   }
 
