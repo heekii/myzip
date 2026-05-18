@@ -171,7 +171,7 @@
         <div class="card mt-4" id="realTxCard">
           <div class="card-header">
             <h3 class="card-title">🏛️ 국토교통부 실거래가</h3>
-            <button type="button" class="btn btn-secondary btn-sm" id="fetchRealTxBtn">조회</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="fetchRealTxBtn">새로고침</button>
           </div>
           <div class="card-body">
             <div class="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요.</div>
@@ -424,6 +424,7 @@
       }
       renderHeader();
       await Promise.all([loadPrices(), loadDetailInfo(), loadMemos()]);
+      fetchRealTx(); // 메인 로드 완료 후 백그라운드 자동 조회
     } catch(e) { console.error(e); }
     finally { hideLoading(); }
   }
