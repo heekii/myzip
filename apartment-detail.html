@@ -174,7 +174,7 @@
             <button type="button" class="btn btn-secondary btn-sm" id="fetchRealTxBtn">새로고침</button>
           </div>
           <div class="card-body">
-            <div class="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요.</div>
+            <div class="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요. <span id="realTxSizeHint" style="font-weight:600;color:var(--primary)"></span></div>
             <div id="realTxEmpty" class="hidden" style="text-align:center;padding:20px;color:var(--text-muted)">
               실거래 데이터가 없거나 주소 검색으로 등록한 아파트가 아닙니다.
             </div>
@@ -422,8 +422,8 @@
         apartment = { id: snap.id, ...snap.data() };
       }
       renderHeader();
-      loadCachedRealTx(); // apartment 문서에 저장된 캐시를 즉시 표시
       await Promise.all([loadPrices(), loadDetailInfo(), loadMemos()]);
+      loadCachedRealTx(); // detailInfo 로드 후 캐시 표시 (targetSize 필터 적용)
       fetchRealTx(); // 백그라운드에서 최신 데이터 갱신
     } catch(e) { console.error(e); }
     finally { hideLoading(); }
@@ -703,11 +703,37 @@
       </div>`;
   }
 
-  // ── 캐시된 실거래가 즉시 표시 (apartment 문서에서 읽음, 추가 요청 없음) ──
+  // targetSize(예: "84", "84㎡") → 숫자 파싱, 미설정 시 null
+  function parseTargetSize() {
+    const s = detailInfo.targetSize;
+    if (!s) return null;
+    const n = parseFloat(String(s).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? null : n;
+  }
+
+  // targetSize가 설정된 경우 ±3㎡ 범위 내 거래만 필터
+  function filterBySize(items) {
+    const target = parseTargetSize();
+    if (!target) return items;
+    return items.filter(tx => Math.abs(parseFloat(tx.excluUseAr) - target) <= 3);
+  }
+
+  function updateSizeHint() {
+    const target = parseTargetSize();
+    const el = document.getElementById('realTxSizeHint');
+    if (el) el.textContent = target ? `(${target}㎡ 기준)` : '';
+  }
+
+  // ── 캐시된 실거래가 즉시 표시 (detailInfo 로드 후 호출해야 targetSize 필터 작동) ──
   function loadCachedRealTx() {
     if (isGuest) return;
     const cache = apartment.realTxCache;
-    if (cache?.items?.length > 0) renderRealTxList(cache.items);
+    updateSizeHint();
+    if (!cache?.items?.length) return;
+    // 캐시가 다른 평형으로 저장된 경우 표시 스킵 (fetchRealTx가 곧 갱신함)
+    const currentTarget = parseTargetSize();
+    if (currentTarget && cache.targetSize && cache.targetSize !== currentTarget) return;
+    renderRealTxList(filterBySize(cache.items));
   }
 
   // ── 국토교통부 실거래가 조회 + 캐시 갱신 ──
@@ -738,9 +764,15 @@
 
       const norm = s => s.replace(/\s/g, '');
       const aptName = norm(apartment.name);
+      const target = parseTargetSize();
       const all = results.flat().filter(tx => {
         const txName = norm(tx.aptNm || '');
-        return txName.includes(aptName) || aptName.includes(txName);
+        const nameMatch = txName === aptName ||
+          (txName.includes(aptName) && aptName.length >= 4) ||
+          (aptName.includes(txName) && txName.length >= 4);
+        if (!nameMatch) return false;
+        if (target) return Math.abs(parseFloat(tx.excluUseAr) - target) <= 3;
+        return true;
       });
 
       all.sort((a, b) => {
@@ -754,11 +786,12 @@
         excluUseAr: tx.excluUseAr, floor: tx.floor, dealAmount: tx.dealAmount
       }));
 
+      updateSizeHint();
       renderRealTxList(toCache);
 
       if (!isGuest) {
         db.collection('apartments').doc(aptId).update({
-          realTxCache: { items: toCache, cachedAt: firebase.firestore.FieldValue.serverTimestamp() }
+          realTxCache: { items: toCache, cachedAt: firebase.firestore.FieldValue.serverTimestamp(), targetSize: parseTargetSize() || null }
         }).catch(() => {});
         apartment.realTxCache = { items: toCache };
       }
