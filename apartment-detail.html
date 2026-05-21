@@ -781,7 +781,7 @@
 
     try {
       const results = await Promise.all(months.map(ym =>
-        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=100&_type=json`)
+        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=200&_type=json`)
           .then(r => r.json())
           .then(r => {
             let items = r.response?.body?.items?.item || [];
@@ -791,19 +791,46 @@
           .catch(() => [])
       ));
 
-      const norm = s => s.replace(/\s/g, '');
-      const aptName = norm(apartment.name);
-      const aptUmd = apartment.umdNm ? norm(apartment.umdNm) : null;
-      // 이름 + 읍면동 필터 (면적 필터는 칩 UI에서 처리)
-      const all = results.flat().filter(tx => {
-        const txName = norm(tx.aptNm || '');
-        const nameMatch = txName === aptName ||
-          (txName.includes(aptName) && aptName.length >= 4) ||
-          (aptName.includes(txName) && txName.length >= 4);
-        if (!nameMatch) return false;
-        if (aptUmd && tx.umdNm) return norm(tx.umdNm) === aptUmd;
-        return true;
-      });
+      const flat = results.flat();
+      let all;
+
+      if (apartment.aptJibun) {
+        // 지번 확정 상태 → 정확 매칭만 사용
+        all = flat.filter(tx => tx.jibun?.trim() === apartment.aptJibun);
+      } else {
+        // 초회: 이름+읍면동으로 후보 추출 → 지번 학습
+        const norm = s => s.replace(/[\s()（）아파트]/g, '').toLowerCase();
+        const aptName = norm(apartment.name);
+        const aptUmd = apartment.umdNm ? norm(apartment.umdNm) : null;
+        const candidates = flat.filter(tx => {
+          const txName = norm(tx.aptNm || '');
+          const nameMatch = txName === aptName ||
+            (txName.includes(aptName) && aptName.length >= 4) ||
+            (aptName.includes(txName) && txName.length >= 4);
+          if (!nameMatch) return false;
+          if (aptUmd) return !tx.umdNm || norm(tx.umdNm) === aptUmd;
+          return true;
+        });
+
+        if (candidates.length > 0) {
+          // 가장 많이 등장하는 jibun = 이 단지의 고유 지번
+          const jibunMap = {};
+          candidates.forEach(tx => {
+            const j = tx.jibun?.trim();
+            if (j) jibunMap[j] = (jibunMap[j] || 0) + 1;
+          });
+          const aptJibun = Object.entries(jibunMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+          if (aptJibun) {
+            apartment.aptJibun = aptJibun;
+            if (!isGuest) db.collection('apartments').doc(aptId).update({ aptJibun }).catch(() => {});
+            all = candidates.filter(tx => tx.jibun?.trim() === aptJibun);
+          } else {
+            all = candidates;
+          }
+        } else {
+          all = [];
+        }
+      }
 
       all.sort((a, b) => {
         const da = `${a.dealYear}-${String(a.dealMonth).padStart(2,'0')}-${String(a.dealDay).padStart(2,'0')}`;
