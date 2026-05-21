@@ -737,7 +737,7 @@
   }
 
   // ── 국토교통부 실거래가 조회 + 캐시 갱신 ──
-  async function fetchRealTx() {
+  async function fetchRealTx(showFeedback = false) {
     const lawdCd = await getAptLawdCd();
     if (!lawdCd) {
       document.getElementById('realTxEmpty').classList.remove('hidden');
@@ -789,6 +789,11 @@
       updateSizeHint();
       renderRealTxList(toCache);
 
+      if (showFeedback) {
+        if (toCache.length > 0) showToast(`${toCache.length}건 조회됨${target ? ` (${target}㎡ 기준)` : ''}`, 'info');
+        else showToast(target ? `${target}㎡ 거래 없음 (최근 4개월)` : '조회된 거래가 없습니다.', 'error');
+      }
+
       if (!isGuest) {
         db.collection('apartments').doc(aptId).update({
           realTxCache: { items: toCache, cachedAt: firebase.firestore.FieldValue.serverTimestamp(), targetSize: parseTargetSize() || null }
@@ -796,7 +801,7 @@
         apartment.realTxCache = { items: toCache };
       }
     } catch (e) {
-      // 캐시가 있으면 그대로 유지, 없으면 빈 상태
+      if (showFeedback) showToast('조회 중 오류가 발생했습니다.', 'error');
       if (!apartment.realTxCache?.items?.length) {
         document.getElementById('realTxEmpty').classList.remove('hidden');
       }
@@ -1105,12 +1110,16 @@
       const fields = ['nearStation','stationDist','isStationZone','southFacing','commuteGangnam','commuteYeouido','commuteJongno','schoolName','floorAreaRatio','buildingCoverage','targetSize','preferredFloor'];
       const data = {};
       fields.forEach(k => { data[k] = document.getElementById('e_'+k)?.value.trim() || null; });
-      if (isGuest) guestDB.setInfo(aptId, data);
-      else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      detailInfo = { ...detailInfo, ...data };
-      renderDetailView();
-      document.getElementById('editInfoBtn').click();
-      showToast('상세 정보가 저장되었습니다.');
+      try {
+        if (isGuest) guestDB.setInfo(aptId, data);
+        else await db.collection('apartments').doc(aptId).collection('info').doc('detail').set({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        detailInfo = { ...detailInfo, ...data };
+        renderDetailView();
+        document.getElementById('editInfoBtn').click();
+        showToast('상세 정보가 저장되었습니다.');
+      } catch(e) {
+        showToast('저장 중 오류가 발생했습니다.', 'error');
+      }
     });
 
     // 메모 글자 수
@@ -1169,8 +1178,8 @@
       if (confirm('로그아웃 하시겠습니까?')) { await auth.signOut(); window.location.href = 'index.html'; }
     });
 
-    // 실거래가 조회
-    document.getElementById('fetchRealTxBtn').addEventListener('click', fetchRealTx);
+    // 실거래가 조회 (수동 새로고침: 토스트 피드백 포함)
+    document.getElementById('fetchRealTxBtn').addEventListener('click', () => fetchRealTx(true));
 
     // 교통/업무지구/초등학교 자동 조회 버튼
     document.getElementById('autoStationBtn').addEventListener('click', autoStationSearch);
