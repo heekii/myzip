@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-danger: #EF4444;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-text: #1E293B;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+
+  --font-sans: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-150 cursor-pointer border-0 outline-none;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-hover active:scale-95;
+  }
+  .btn-secondary {
+    @apply bg-white text-text border border-border hover:bg-slate-50 active:scale-95;
+  }
+  .btn-danger {
+    @apply bg-danger text-white hover:bg-red-600 active:scale-95;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-full {
+    @apply w-full;
+  }
+
+  .form-input {
+    @apply w-full px-4 py-3 border border-border rounded-lg text-sm bg-white focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all;
+  }
+  .form-label {
+    @apply block text-sm font-semibold text-text mb-1.5;
+  }
+  .form-hint {
+    @apply text-xs text-text-muted mt-1;
+  }
+
+  .card {
+    @apply bg-white rounded-xl border border-border shadow-sm;
+  }
+  .card-header {
+    @apply flex items-center justify-between px-5 py-4 border-b border-border;
+  }
+  .card-title {
+    @apply text-base font-bold text-text;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  .apt-chip {
+    @apply inline-block px-3 py-1 bg-slate-100 text-text-secondary text-xs font-semibold rounded-full;
+  }
+}

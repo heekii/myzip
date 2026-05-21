@@ -2,3 +2,7 @@
 .claude/
 !.claude/settings.json
 node_modules/
+dist/
+*.local
+.env
+.env.*
