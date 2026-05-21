@@ -816,15 +816,18 @@
         const norm = s => s.replace(/[\s()（）아파트]/g, '').toLowerCase();
         const aptName = norm(apartment.name);
         const aptUmd = apartment.umdNm ? norm(apartment.umdNm) : null;
-        const candidates = flat.filter(tx => {
+        const matchFilter = (tx, exactOnly) => {
           const txName = norm(tx.aptNm || '');
-          const nameMatch = txName === aptName ||
-            (txName.includes(aptName) && aptName.length >= 4) ||
-            (aptName.includes(txName) && txName.length >= 4);
+          const nameMatch = exactOnly ? txName === aptName :
+            ((txName.includes(aptName) && aptName.length >= 4) ||
+             (aptName.includes(txName) && txName.length >= 4));
           if (!nameMatch) return false;
           if (aptUmd) return !tx.umdNm || norm(tx.umdNm) === aptUmd;
           return true;
-        });
+        };
+        // 정확 이름 매칭 우선 — 부분 매칭은 정확 매칭 결과가 없을 때만
+        let candidates = flat.filter(tx => matchFilter(tx, true));
+        if (!candidates.length) candidates = flat.filter(tx => matchFilter(tx, false));
 
         if (candidates.length > 0) {
           // 가장 많이 등장하는 jibun = 이 단지의 고유 지번
@@ -837,7 +840,7 @@
           if (aptJibun) {
             apartment.aptJibun = aptJibun;
             if (!isGuest) db.collection('apartments').doc(aptId).update({ aptJibun }).catch(() => {});
-            all = candidates.filter(tx => tx.jibun?.trim() === aptJibun);
+            all = candidates.filter(tx => toJibun(tx.jibun) === aptJibun);
           } else {
             all = candidates;
           }
