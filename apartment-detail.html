@@ -715,7 +715,7 @@
   function filterBySize(items) {
     const target = parseTargetSize();
     if (!target) return items;
-    return items.filter(tx => Math.abs(parseFloat(tx.excluUseAr) - target) <= 3);
+    return items.filter(tx => Math.abs(parseFloat(tx.excluUseAr) - target) <= 2);
   }
 
   function updateSizeHint() {
@@ -771,7 +771,7 @@
           (txName.includes(aptName) && aptName.length >= 4) ||
           (aptName.includes(txName) && txName.length >= 4);
         if (!nameMatch) return false;
-        if (target) return Math.abs(parseFloat(tx.excluUseAr) - target) <= 3;
+        if (target) return Math.abs(parseFloat(tx.excluUseAr) - target) <= 2;
         return true;
       });
 
