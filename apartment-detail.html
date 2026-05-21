@@ -728,11 +728,19 @@
       selectedTxSize = sizes[0] ?? null;
       return;
     }
-    // targetSize에 가장 가까운 면적을 초기 선택 (이미 선택값 있으면 유지)
-    const target = parseTargetSize();
-    if (selectedTxSize === null && target) {
-      selectedTxSize = sizes.reduce((prev, cur) => Math.abs(cur - target) < Math.abs(prev - target) ? cur : prev);
+
+    // 초기 선택: 저장된 aptPreferredSize → targetSize 근사값 순으로 폴백
+    if (selectedTxSize === null) {
+      if (apartment.aptPreferredSize && sizes.includes(apartment.aptPreferredSize)) {
+        selectedTxSize = apartment.aptPreferredSize;
+      } else {
+        const target = parseTargetSize();
+        if (target) {
+          selectedTxSize = sizes.reduce((prev, cur) => Math.abs(cur - target) < Math.abs(prev - target) ? cur : prev);
+        }
+      }
     }
+
     container.innerHTML = `
       <button class="size-chip ${selectedTxSize === null ? 'active' : ''}" data-size="">전체</button>
       ${sizes.map(s => `<button class="size-chip ${selectedTxSize === s ? 'active' : ''}" data-size="${s}">${s}㎡</button>`).join('')}
@@ -744,6 +752,9 @@
         selectedTxSize = btn.dataset.size ? parseFloat(btn.dataset.size) : null;
         container.querySelectorAll('.size-chip').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        // 선택 저장 (다음 진입 시 자동 복원)
+        apartment.aptPreferredSize = selectedTxSize;
+        if (!isGuest) db.collection('apartments').doc(aptId).update({ aptPreferredSize: selectedTxSize }).catch(() => {});
         const filtered = selectedTxSize !== null
           ? allRealTxItems.filter(tx => Math.abs(parseFloat(tx.excluUseAr) - selectedTxSize) <= 0.5)
           : allRealTxItems;
