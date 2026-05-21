@@ -792,7 +792,7 @@
 
     try {
       const results = await Promise.all(months.map(ym =>
-        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=200&_type=json`)
+        fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_API_KEY)}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=1000&_type=json`)
           .then(r => r.json())
           .then(r => {
             let items = r.response?.body?.items?.item || [];
@@ -805,9 +805,12 @@
       const flat = results.flat();
       let all;
 
+      // jibun은 API에서 정수로 올 수 있으므로 항상 string 변환
+      const toJibun = v => (v != null ? String(v).trim() : '');
+
       if (apartment.aptJibun) {
         // 지번 확정 상태 → 정확 매칭만 사용
-        all = flat.filter(tx => tx.jibun?.trim() === apartment.aptJibun);
+        all = flat.filter(tx => toJibun(tx.jibun) === apartment.aptJibun);
       } else {
         // 초회: 이름+읍면동으로 후보 추출 → 지번 학습
         const norm = s => s.replace(/[\s()（）아파트]/g, '').toLowerCase();
@@ -827,7 +830,7 @@
           // 가장 많이 등장하는 jibun = 이 단지의 고유 지번
           const jibunMap = {};
           candidates.forEach(tx => {
-            const j = tx.jibun?.trim();
+            const j = toJibun(tx.jibun);
             if (j) jibunMap[j] = (jibunMap[j] || 0) + 1;
           });
           const aptJibun = Object.entries(jibunMap).sort((a, b) => b[1] - a[1])[0]?.[0];
