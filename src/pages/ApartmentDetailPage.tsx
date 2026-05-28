@@ -12,6 +12,8 @@ import { formatPrice } from '@/lib/utils'
 import type { Apartment, ApartmentDetail, PriceEntry, Memo } from '@/types'
 import PriceSection from './detail/PriceSection'
 import InfoSection from './detail/InfoSection'
+import MapSection from './detail/MapSection'
+import NewsSection from './detail/NewsSection'
 import MemoSection from './detail/MemoSection'
 
 const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974'
@@ -298,6 +300,10 @@ export default function ApartmentDetailPage() {
         onAutoCommute={() => autoFetchCommute(apt)}
         onAutoSchool={() => autoFetchSchool(apt)}
       />
+
+      <MapSection apt={apt} />
+
+      <NewsSection aptName={apt.name} />
 
       <MemoSection
         apt={apt}
