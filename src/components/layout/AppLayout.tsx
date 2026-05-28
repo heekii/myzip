@@ -11,7 +11,7 @@ export default function AppLayout() {
   const { isGuest } = useAuthStore()
 
   return (
-    <div className="flex min-h-screen max-w-[1000px] mx-auto shadow-[0_0_40px_rgba(0,0,0,0.08)] bg-bg">
+    <div className="flex min-h-screen max-w-[1400px] mx-auto shadow-[0_0_40px_rgba(0,0,0,0.08)] bg-bg">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div

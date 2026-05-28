@@ -69,7 +69,7 @@
     @apply bg-white rounded-xl border border-border shadow-sm;
   }
   .card-header {
-    @apply flex items-center justify-between px-5 py-4 border-b border-border;
+    @apply flex items-center justify-between flex-wrap gap-y-2 px-5 py-4 border-b border-border;
   }
   .card-title {
     @apply text-base font-bold text-text;

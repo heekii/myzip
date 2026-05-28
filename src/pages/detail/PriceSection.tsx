@@ -355,7 +355,7 @@ export default function PriceSection({ apt, isGuest, prices, onPricesChange, onA
       <div className="card">
         <div className="card-header"><h3 className="card-title">시세 입력</h3></div>
         <div className="card-body space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="form-label">날짜</label>
               <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} />
@@ -388,7 +388,7 @@ export default function PriceSection({ apt, isGuest, prices, onPricesChange, onA
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">시세 추이</h3>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {(['3', '6', '12', '0'] as const).map(p => (
               <button key={p} type="button"
                 className={`btn btn-sm ${period === p ? 'btn-primary' : 'btn-secondary'}`}

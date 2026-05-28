@@ -141,14 +141,14 @@ export default function ComparePage() {
       {selectedApts.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ minWidth: `${180 + selectedApts.length * 140}px` }}>
+            <table className="w-full text-sm" style={{ minWidth: `${180 + selectedApts.length * 180}px` }}>
               <thead>
                 <tr className="bg-bg">
-                  <th className="sticky left-0 bg-bg z-10 text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider w-[140px]">
+                  <th className="sticky left-0 bg-bg z-10 text-left px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider w-[160px]">
                     항목
                   </th>
                   {selectedApts.map(apt => (
-                    <th key={apt.id} className="px-3 py-3 text-center min-w-[130px]">
+                    <th key={apt.id} className="px-4 py-3 text-center min-w-[160px]">
                       <div className="font-bold text-text text-[13px] leading-tight">{apt.name}</div>
                       {apt.address && (
                         <div className="text-[10px] text-text-muted mt-0.5 font-normal truncate max-w-[120px] mx-auto">
@@ -249,11 +249,11 @@ function Row({ label, values, compare, highlight }: {
 
   return (
     <tr className="hover:bg-slate-50/50">
-      <td className="sticky left-0 bg-white hover:bg-slate-50/50 px-4 py-2.5 text-xs text-text-muted font-medium whitespace-nowrap z-10">
+      <td className="sticky left-0 bg-white hover:bg-slate-50/50 px-4 py-3 text-xs text-text-muted font-medium whitespace-nowrap z-10">
         {label}
       </td>
       {values.map((v, i) => (
-        <td key={i} className="px-3 py-2.5 text-center text-sm">
+        <td key={i} className="px-4 py-3 text-center text-sm">
           <span className={[
             v === '-' ? 'text-text-muted' : 'text-text font-medium',
             i === bestIdx ? 'text-success font-bold' : '',
