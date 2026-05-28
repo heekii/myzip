@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -20,10 +21,15 @@ export default function LoginPage() {
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [agreed, setAgreed] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    if (mode === 'signup' && !agreed) {
+      setError('개인정보 수집 및 이용에 동의해주세요.')
+      return
+    }
     setLoading(true)
     try {
       if (mode === 'login') {
@@ -112,6 +118,20 @@ export default function LoginPage() {
                 <input className="form-input" type="password" value={password}
                   onChange={e => setPassword(e.target.value)} placeholder="6자 이상" required minLength={6} />
               </div>
+
+              {mode === 'signup' && (
+                <label className="flex items-start gap-2 text-xs text-text-muted cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 shrink-0"
+                    checked={agreed}
+                    onChange={e => setAgreed(e.target.checked)}
+                  />
+                  <span>
+                    <Link to="/privacy" target="_blank" className="text-primary underline">개인정보처리방침</Link>에 동의합니다. (필수)
+                  </span>
+                </label>
+              )}
 
               {error && <p className="text-danger text-sm">{error}</p>}
 

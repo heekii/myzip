@@ -1,16 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+
     match /apartments/{aptId} {
-      allow read, write: if request.auth != null && resource == null || request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // 읽기: 본인 소유 문서만
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+
+      // 생성: 반드시 본인 uid를 userId로 설정해야 함
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      // 수정/삭제: 본인 소유 문서만
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // 서브컬렉션(prices, memos, info): 부모 아파트 소유자만
       match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null &&
-          get(/databases/$(database)/documents/apartments/$(aptId)).data.userId == request.auth.uid;
+        allow read, write: if request.auth != null
+          && get(/databases/$(database)/documents/apartments/$(aptId)).data.userId == request.auth.uid;
       }
     }
+
   }
 }
