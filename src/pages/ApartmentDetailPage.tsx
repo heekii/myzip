@@ -16,8 +16,8 @@ import MapSection from './detail/MapSection'
 import NewsSection from './detail/NewsSection'
 import MemoSection from './detail/MemoSection'
 
-const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974'
-const ODSAY_KEY = '5QCQZr+fdJhD2Blcte1aWA'
+const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string
+const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
 
 export default function ApartmentDetailPage() {
   const { id } = useParams<{ id: string }>()

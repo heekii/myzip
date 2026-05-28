@@ -8,8 +8,8 @@ import { guestDB } from '@/lib/guestDB'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const kakao: any
 
-const MOLIT_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce'
-const ODSAY_KEY = '5QCQZr+fdJhD2Blcte1aWA'
+const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
+const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
 const STATIONS = {
   gangnam: { name: '강남역', lng: 127.027621, lat: 37.497942 },
   yeouido: { name: '여의도역', lng: 126.924171, lat: 37.521574 },

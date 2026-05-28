@@ -11,7 +11,7 @@ import type { Apartment, PriceEntry, RealTxItem } from '@/types'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Chart: any
 
-const MOLIT_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce'
+const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
 
 interface Props {
   apt: Apartment
