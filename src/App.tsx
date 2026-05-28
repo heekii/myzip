@@ -6,6 +6,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import RegisterPage from '@/pages/RegisterPage'
+import ApartmentDetailPage from '@/pages/ApartmentDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5 } },
@@ -30,7 +31,7 @@ function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/apartments/:id" element={<div className="p-6 text-text-muted text-sm">아파트 상세 페이지 준비 중...</div>} />
+        <Route path="/apartments/:id" element={<ApartmentDetailPage />} />
       </Route>
     </Routes>
   )

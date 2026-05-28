@@ -17,6 +17,13 @@ export interface Apartment {
   latestMaxPrice?: number
   latestMinPrice?: number
   prevMaxPrice?: number
+  // 실거래가 조회용 캐시 필드
+  bjdCode?: string
+  umdNm?: string
+  aptJibun?: string
+  aptPreferredSize?: number | null
+  kaptCode?: string
+  realTxCache?: { items: RealTxItem[] }
 }
 
 export interface PriceEntry {
