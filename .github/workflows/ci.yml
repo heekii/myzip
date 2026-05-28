@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  validate:
-    name: HTML 검증
+  build:
+    name: 빌드 검증
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,31 +17,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: html-validate 설치
-        run: npm install -g html-validate
+      - name: 의존성 설치
+        run: npm ci
 
-      - name: HTML 파일 검증
-        run: |
-          html-validate \
-            index.html \
-            dashboard.html \
-            apartment-register.html \
-            apartment-detail.html \
-            profile.html
-
-  deploy:
-    name: Firebase 배포
-    needs: validate
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Firebase CLI 설치
-        run: npm install -g firebase-tools
-
-      - name: Firebase 배포
-        run: firebase deploy --only hosting --project myzip-de785
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      - name: 타입 체크 + 빌드
+        run: npm run build
