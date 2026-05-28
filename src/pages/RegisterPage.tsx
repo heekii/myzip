@@ -44,6 +44,7 @@ export default function RegisterPage() {
   const [preview, setPreview] = useState<{ name: string; address: string; meta: string } | null>(null)
   const [registerData, setRegisterData] = useState<RegisterData | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [loadingPreview, setLoadingPreview] = useState(false)
   const [error, setError] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
 
@@ -84,6 +85,7 @@ export default function RegisterPage() {
     setAptName(name)
     setSuggestions([])
     setShowDropdown(false)
+    setLoadingPreview(true)
     setPreview({ name, address, meta: '정보 불러오는 중...' })
 
     let region = ''
@@ -119,6 +121,7 @@ export default function RegisterPage() {
     if (!lawdCd || lat == null || lng == null) {
       setPreview({ name, address, meta: '' })
       setRegisterData(base)
+      setLoadingPreview(false)
       return
     }
 
@@ -139,6 +142,7 @@ export default function RegisterPage() {
 
     setPreview({ name, address, meta: metaParts.join(' · ') })
     setRegisterData({ ...base, ...molit, totalUnits: units, ...commute })
+    setLoadingPreview(false)
   }
 
   async function handleRegister() {
@@ -260,10 +264,10 @@ export default function RegisterPage() {
             type="button"
             className="btn btn-primary btn-full"
             style={{ padding: '14px', fontSize: '1rem', borderRadius: '12px' }}
-            disabled={submitting}
+            disabled={submitting || loadingPreview}
             onClick={handleRegister}
           >
-            {submitting ? '등록 중...' : '추가하기'}
+            {submitting ? '등록 중...' : loadingPreview ? '정보 불러오는 중...' : '추가하기'}
           </button>
 
           <p className="text-center text-xs text-text-muted mt-3">
