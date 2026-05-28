@@ -216,6 +216,67 @@ export default function PriceSection({ apt, isGuest, prices, onPricesChange, onA
     }
   }
 
+  // ── Auto-import from real transaction data ────────────────────────────────
+
+  async function handleAutoImport() {
+    const source = selectedSize != null
+      ? realTxItems.filter(tx => Math.abs(parseFloat(tx.excluUseAr) - selectedSize) <= 0.5)
+      : realTxItems
+    if (source.length === 0) { alert('실거래가 데이터가 없습니다.\n먼저 실거래가를 조회해주세요.'); return }
+
+    // Group by YYYY-MM: collect max/min dealAmount and the latest date
+    const monthMap: Record<string, { maxPrice: number; minPrice: number; lastDate: string }> = {}
+    source.forEach(tx => {
+      const ym = `${tx.dealYear}-${String(tx.dealMonth).padStart(2, '0')}`
+      const date = `${tx.dealYear}-${String(tx.dealMonth).padStart(2, '0')}-${String(tx.dealDay).padStart(2, '0')}`
+      const price = parseInt(String(tx.dealAmount).replace(/,/g, '').trim())
+      if (!monthMap[ym]) {
+        monthMap[ym] = { maxPrice: price, minPrice: price, lastDate: date }
+      } else {
+        if (price > monthMap[ym].maxPrice) monthMap[ym].maxPrice = price
+        if (price < monthMap[ym].minPrice) monthMap[ym].minPrice = price
+        if (date > monthMap[ym].lastDate) monthMap[ym].lastDate = date
+      }
+    })
+
+    const newEntries = Object.entries(monthMap)
+      .map(([ym, v]) => ({ ym, date: v.lastDate, maxPrice: v.maxPrice, minPrice: v.minPrice }))
+      .filter(e => !prices.some(p => p.date.startsWith(e.ym)))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    if (newEntries.length === 0) { alert('이미 모든 월의 데이터가 입력되어 있습니다.'); return }
+
+    const sizeLabel = selectedSize != null ? `${selectedSize}㎡ ` : ''
+    if (!confirm(`${sizeLabel}실거래가 기준 ${newEntries.length}개월치 시세를 자동 입력할까요?\n\n실거래가(실제 체결 가격)를 호가 시세로 가져옵니다.`)) return
+
+    setSaving(true)
+    try {
+      for (const entry of newEntries) {
+        if (isGuest) {
+          guestDB.addPrice(apt.id, { date: entry.date, maxPrice: entry.maxPrice, minPrice: entry.minPrice })
+        } else {
+          await addDoc(collection(db, 'apartments', apt.id, 'prices'), {
+            date: entry.date, maxPrice: entry.maxPrice, minPrice: entry.minPrice,
+            createdAt: serverTimestamp(),
+          })
+        }
+      }
+      const last = newEntries[newEntries.length - 1]
+      if (!isGuest) {
+        await updateDoc(doc(db, 'apartments', apt.id), {
+          priceCount: increment(newEntries.length),
+          latestMaxPrice: last.maxPrice, latestMinPrice: last.minPrice,
+          prevMaxPrice: apt.latestMaxPrice ?? null,
+        })
+      }
+      await reloadPrices()
+    } catch {
+      alert('저장 중 오류가 발생했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // ── Chart ─────────────────────────────────────────────────────────────────
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -342,7 +403,17 @@ export default function PriceSection({ apt, isGuest, prices, onPricesChange, onA
           {filteredPrices.length === 0 ? (
             <div className="text-center py-8 text-text-muted">
               <p className="text-3xl mb-2">📊</p>
-              <p className="text-sm">시세를 입력하면 그래프가 나타납니다.</p>
+              <p className="text-sm mb-3">시세를 입력하면 그래프가 나타납니다.</p>
+              {realTxItems.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm mx-auto"
+                  disabled={saving}
+                  onClick={handleAutoImport}
+                >
+                  {saving ? '저장 중...' : '실거래가로 자동 채우기'}
+                </button>
+              )}
             </div>
           ) : (
             <div style={{ height: 240 }}>
@@ -394,9 +465,16 @@ export default function PriceSection({ apt, isGuest, prices, onPricesChange, onA
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">🏛️ 국토교통부 실거래가</h3>
-          <button type="button" className="btn btn-secondary btn-sm" disabled={realTxLoading} onClick={() => fetchRealTx(true)}>
-            {realTxLoading ? '조회 중...' : '새로고침'}
-          </button>
+          <div className="flex gap-1.5">
+            {realTxItems.length > 0 && (
+              <button type="button" className="btn btn-primary btn-sm" disabled={saving || realTxLoading} onClick={handleAutoImport}>
+                {saving ? '저장 중...' : '시세로 가져오기'}
+              </button>
+            )}
+            <button type="button" className="btn btn-secondary btn-sm" disabled={realTxLoading} onClick={() => fetchRealTx(true)}>
+              {realTxLoading ? '조회 중...' : '새로고침'}
+            </button>
+          </div>
         </div>
         <div className="card-body">
           <p className="form-hint mb-3">실제 거래 완료된 가격이에요. 호가와 다를 수 있어요.</p>
