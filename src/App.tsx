@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import RegisterPage from '@/pages/RegisterPage'
 import ApartmentDetailPage from '@/pages/ApartmentDetailPage'
+import ProfilePage from '@/pages/ProfilePage'
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 1000 * 60 * 5 } },
@@ -32,6 +33,7 @@ function AppRoutes() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/apartments/:id" element={<ApartmentDetailPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
     </Routes>
   )
