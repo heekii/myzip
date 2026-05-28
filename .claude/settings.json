@@ -1,16 +1,4 @@
 {
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".claude\\auto-deploy.ps1\""
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(git status)",
@@ -33,7 +21,24 @@
       "Bash(mkdir *)",
       "Bash(curl -s \"https://myzip-de785.web.app/*\")",
       "Bash(curl -s -H \"Authorization: KakaoAK *\" \"https://dapi.kakao.com/*\")",
-      "Bash(curl -s \"https://firestore.googleapis.com/*\")"
+      "Bash(curl -s \"https://firestore.googleapis.com/*\")",
+      "PowerShell(npm --version)",
+      "PowerShell(cd \"d:/001_UXUI/08_부동산시세트래킹\"; $env:NODE_OPTIONS=\"--max-old-space-size=4096\"; npx vite build 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
+      "PowerShell(cd \"d:/001_UXUI/08_부동산시세트래킹\"; npx vite build --minify false 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
+      "Read(//d/001_UXUI/08_�ε���ü�Ʈ��ŷ/node_modules/**)",
+      "Read(//d/001_UXUI/08_�ε���ü�Ʈ��ŷ/**)",
+      "Bash(npm config *)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(echo \"TSC exit: $?\")",
+      "Bash(echo \"VITE exit: $?\")",
+      "Bash(npm install)",
+      "Bash(npm install --include=dev)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(./node_modules/.bin/tsc *)",
+      "Bash(./node_modules/.bin/vite *)",
+      "PowerShell(python3 --version)",
+      "PowerShell(python --version)"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -42,6 +47,18 @@
       "Bash(rm -rf*)",
       "Bash(firebase login:ci)",
       "Bash(npm install * --save)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".claude\\auto-deploy.ps1\""
+          }
+        ]
+      }
     ]
   }
 }
