@@ -51,17 +51,37 @@ export default function RegisterPage() {
   const searchByName = useCallback((q: string) => {
     try {
       const ps = new kakao.maps.services.Places()
-      ps.keywordSearch(q, (result: KakaoPlace[], status: string) => {
-        if (status !== kakao.maps.services.Status.OK) { setSuggestions([]); return }
-        setSuggestions(
-          result
-            .filter(p => p.category_name?.endsWith('아파트'))
-            .map(p => ({
-              name: p.place_name.replace(/아파트$/, '').trim(),
-              address: p.road_address_name || p.address_name,
-            }))
-        )
-      }, { size: 15 })
+      const pages = [1, 2, 3]
+      const collected: KakaoPlace[] = []
+      let done = 0
+
+      const kakaoQuery = q.endsWith('아파트') ? q : `${q} 아파트`
+      pages.forEach(page => {
+        ps.keywordSearch(kakaoQuery, (result: KakaoPlace[], status: string) => {
+          if (status === kakao.maps.services.Status.OK) collected.push(...result)
+          done++
+          if (done === pages.length) {
+            const seen = new Set<string>()
+            setSuggestions(
+              collected
+                .filter(p => {
+                  const cat = p.category_name ?? ''
+                  return cat.includes('아파트') || cat.includes('주거')
+                })
+                .filter(p => {
+                  const key = p.place_name + '|' + (p.road_address_name || p.address_name)
+                  if (seen.has(key)) return false
+                  seen.add(key)
+                  return true
+                })
+                .map(p => ({
+                  name: p.place_name.replace(/아파트$/, '').trim(),
+                  address: p.road_address_name || p.address_name,
+                }))
+            )
+          }
+        }, { size: 15, page })
+      })
     } catch {
       setSuggestions([])
     }
