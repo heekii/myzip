@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   doc, getDoc, collection, getDocs, query, orderBy,
@@ -9,7 +9,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
-import type { Apartment, ApartmentDetail, PriceEntry, Memo } from '@/types'
+import type { Apartment, ApartmentDetail, Memo, RealTxItem } from '@/types'
 import PriceSection from './detail/PriceSection'
 import InfoSection from './detail/InfoSection'
 import MapSection from './detail/MapSection'
@@ -26,12 +26,9 @@ export default function ApartmentDetailPage() {
   const { setPageTitle, setHeaderRight } = useUIStore()
 
   const [apt, setApt] = useState<Apartment | null>(null)
-  const [prices, setPrices] = useState<PriceEntry[]>([])
   const [detailInfo, setDetailInfo] = useState<Partial<ApartmentDetail>>({})
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
-
-  // ── Load ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!id) { navigate('/dashboard'); return }
@@ -58,28 +55,17 @@ export default function ApartmentDetailPage() {
       setApt(apartment)
       setPageTitle(apartment.name)
 
-      const [priceData, infoData, memoData] = await Promise.all([
-        loadPrices(apartment),
+      const [infoData, memoData] = await Promise.all([
         loadInfo(apartment),
         loadMemos(apartment),
       ])
-      setPrices(priceData)
       setDetailInfo(infoData)
       setMemos(memoData)
 
-      // 누락 필드 자동 보완 (백그라운드)
       autoFill(apartment, infoData)
     } finally {
       setLoading(false)
     }
-  }
-
-  async function loadPrices(apartment: Apartment): Promise<PriceEntry[]> {
-    if (isGuest) return guestDB.getPrices(apartment.id)
-    const snap = await getDocs(
-      query(collection(db, 'apartments', apartment.id, 'prices'), orderBy('date', 'asc'))
-    )
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as PriceEntry))
   }
 
   async function loadInfo(apartment: Apartment): Promise<Partial<ApartmentDetail>> {
@@ -96,10 +82,8 @@ export default function ApartmentDetailPage() {
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Memo))
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
-
   async function handleDelete() {
-    if (!apt || !confirm(`'${apt.name}'을(를) 삭제하시겠습니까?\n시세, 메모 등 모든 데이터가 삭제됩니다.`)) return
+    if (!apt || !confirm(`'${apt.name}'을(를) 삭제하시겠습니까?\n메모 등 모든 데이터가 삭제됩니다.`)) return
     try {
       if (isGuest) {
         guestDB.deleteApartment(apt.id)
@@ -118,8 +102,6 @@ export default function ApartmentDetailPage() {
     }
   }
 
-  // ── Header right (delete button) ──────────────────────────────────────────
-
   useEffect(() => {
     if (!apt) return
     setHeaderRight(
@@ -129,13 +111,14 @@ export default function ApartmentDetailPage() {
     )
   }, [apt])
 
-  // ── Auto-fill background tasks ────────────────────────────────────────────
+  // ── Auto-fill background ──────────────────────────────────────────────────
 
   async function autoFill(apartment: Apartment, info: Partial<ApartmentDetail>) {
     const tasks: Promise<void>[] = []
     if (!info.nearStation) tasks.push(autoFetchStation(apartment))
     if (!info.commuteGangnam) tasks.push(autoFetchCommute(apartment))
     if (!info.schoolName) tasks.push(autoFetchSchool(apartment))
+    if (!info.floorAreaRatio) tasks.push(autoFetchBuilding(apartment))
     if (tasks.length > 0) await Promise.allSettled(tasks)
   }
 
@@ -143,11 +126,11 @@ export default function ApartmentDetailPage() {
     if (apartment.lat && apartment.lng) return { lat: apartment.lat, lng: apartment.lng }
     try {
       const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(apartment.name)}&size=5`,
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(apartment.name + ' 아파트')}&size=5`,
         { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
       )
       const data = await res.json()
-      const found = (data.documents || []).find((p: any) => p.category_name?.endsWith('아파트'))
+      const found = (data.documents || []).find((p: any) => p.category_name?.includes('아파트'))
       if (!found) return null
       const lat = parseFloat(found.y), lng = parseFloat(found.x)
       setApt(prev => prev ? { ...prev, lat, lng } : prev)
@@ -173,13 +156,12 @@ export default function ApartmentDetailPage() {
       const station = data.documents?.[0]
       if (!station) return
       const dist = parseInt(station.distance)
-      const updates: Partial<ApartmentDetail> = {
+      await saveInfo(apartment.id, {
         nearStation: station.place_name,
         stationDist: String(dist),
         isStationZone: dist <= 500 ? 'yes' : 'no',
-      }
-      await saveInfo(apartment.id, updates)
-    } catch { /* 무시 */ }
+      })
+    } catch { }
   }
 
   async function autoFetchCommute(apartment: Apartment) {
@@ -205,7 +187,7 @@ export default function ApartmentDetailPage() {
         if (r.status === 'fulfilled' && r.value.time) updates[r.value.key] = r.value.time
       })
       if (Object.keys(updates).length) await saveInfo(apartment.id, updates)
-    } catch { /* 무시 */ }
+    } catch { }
   }
 
   async function autoFetchSchool(apartment: Apartment) {
@@ -220,7 +202,48 @@ export default function ApartmentDetailPage() {
       const school = (data.documents || []).find((p: any) => p.place_name.includes('초등학교'))
       if (!school) return
       await saveInfo(apartment.id, { schoolName: school.place_name })
-    } catch { /* 무시 */ }
+    } catch { }
+  }
+
+  async function autoFetchBuilding(apartment: Apartment) {
+    if (!apartment.address) return
+    try {
+      // Step 1: geocode to get b_code
+      const geoRes = await fetch(
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}&size=1`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      )
+      const geoData = await geoRes.json()
+      const bCode = geoData.documents?.[0]?.address?.b_code
+      if (!bCode) return
+
+      // Step 2: get kaptCode from AptListService2
+      const norm = (s: string) => s.replace(/[\s()（）]|아파트/g, '').toLowerCase()
+      const aptNorm = norm(apartment.name)
+      const listRes = await fetch(
+        `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(import.meta.env.VITE_MOLIT_KEY)}&bjdongCode=${bCode}&numOfRows=200&_type=json`
+      ).then(r => r.json())
+      let listItems = listRes.response?.body?.items?.item ?? []
+      if (!Array.isArray(listItems)) listItems = listItems ? [listItems] : []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const match = (listItems as any[]).find((it: any) => {
+        const n = norm(it.kaptName ?? '')
+        return n === aptNorm || n.includes(aptNorm) || aptNorm.includes(n)
+      })
+      if (!match?.kaptCode) return
+
+      // Step 3: get 용적률/건폐율 from AptBasisInfoService
+      const infoRes = await fetch(
+        `https://apis.data.go.kr/1613000/AptBasisInfoService/getAprtInfo?serviceKey=${encodeURIComponent(import.meta.env.VITE_MOLIT_KEY)}&kaptCode=${match.kaptCode}&_type=json`
+      ).then(r => r.json())
+      const item = infoRes.response?.body?.items?.item
+      if (!item) return
+
+      const updates: Partial<ApartmentDetail> = {}
+      if (item.kaptdacnt) updates.floorAreaRatio = String(item.kaptdacnt)
+      if (item.kaptdaPt) updates.buildingCoverage = String(item.kaptdaPt)
+      if (Object.keys(updates).length) await saveInfo(apartment.id, updates)
+    } catch { }
   }
 
   async function saveInfo(aptId: string, updates: Partial<ApartmentDetail>) {
@@ -232,6 +255,24 @@ export default function ApartmentDetailPage() {
     }
     setDetailInfo(prev => ({ ...prev, ...updates }))
   }
+
+  // ── Summary from cached real tx items ─────────────────────────────────────
+
+  const summary = useMemo(() => {
+    const items: RealTxItem[] = apt?.realTxCache?.items ?? []
+    if (!items.length) return null
+    const toPrice = (tx: RealTxItem) => parseInt(String(tx.dealAmount).replace(/,/g, ''))
+    const latestKey = `${items[0].dealYear}-${items[0].dealMonth}`
+    const latestItems = items.filter(tx => `${tx.dealYear}-${tx.dealMonth}` === latestKey)
+    const prevItems = items.filter(tx => `${tx.dealYear}-${tx.dealMonth}` !== latestKey)
+    const prevKey = prevItems[0] ? `${prevItems[0].dealYear}-${prevItems[0].dealMonth}` : null
+    const prevMonthItems = prevKey ? prevItems.filter(tx => `${tx.dealYear}-${tx.dealMonth}` === prevKey) : []
+    const latestMax = Math.max(...latestItems.map(toPrice))
+    const latestMin = Math.min(...latestItems.map(toPrice))
+    const prevMax = prevMonthItems.length ? Math.max(...prevMonthItems.map(toPrice)) : null
+    const diff = prevMax ? latestMax - prevMax : null
+    return { latestMax, latestMin, count: items.length, diff }
+  }, [apt?.realTxCache?.items])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -254,10 +295,6 @@ export default function ApartmentDetailPage() {
     apt.maxFloor && `최고 ${apt.maxFloor}층`,
   ].filter(Boolean) as string[]
 
-  const latest = prices[prices.length - 1]
-  const prev = prices.length > 1 ? prices[prices.length - 2] : null
-  const priceDiff = latest?.maxPrice && prev?.maxPrice ? latest.maxPrice - prev.maxPrice : null
-
   return (
     <div className="space-y-4">
       {/* 아파트 헤더 */}
@@ -272,33 +309,35 @@ export default function ApartmentDetailPage() {
       </div>
 
       {/* 시세 요약 바 */}
-      <div className="grid grid-cols-4 gap-3">
-        <SummaryItem label="최근 최고가" value={latest?.maxPrice ? formatPrice(latest.maxPrice) : '-'} />
-        <SummaryItem label="최근 최저가" value={latest?.minPrice ? formatPrice(latest.minPrice) : '-'} />
-        <SummaryItem label="기록 건수" value={`${prices.length}건`} neutral />
-        <SummaryItem
-          label="최근 변동"
-          value={priceDiff != null ? (priceDiff > 0 ? `▲ ${formatPrice(priceDiff)}` : priceDiff < 0 ? `▼ ${formatPrice(Math.abs(priceDiff))}` : '변동없음') : '-'}
-          up={priceDiff != null && priceDiff > 0}
-          down={priceDiff != null && priceDiff < 0}
-        />
-      </div>
+      {summary && (
+        <div className="grid grid-cols-4 gap-3">
+          <SummaryItem label="최근 최고 실거래" value={formatPrice(summary.latestMax)} />
+          <SummaryItem label="최근 최저 실거래" value={formatPrice(summary.latestMin)} />
+          <SummaryItem label="조회 건수" value={`${summary.count}건`} neutral />
+          <SummaryItem
+            label="전월 대비"
+            value={summary.diff != null ? (summary.diff > 0 ? `▲ ${formatPrice(summary.diff)}` : summary.diff < 0 ? `▼ ${formatPrice(Math.abs(summary.diff))}` : '변동없음') : '-'}
+            up={summary.diff != null && summary.diff > 0}
+            down={summary.diff != null && summary.diff < 0}
+          />
+        </div>
+      )}
 
       {/* 섹션들 */}
       <PriceSection
         apt={apt}
         isGuest={isGuest}
-        prices={prices}
-        onPricesChange={setPrices}
         onAptChange={setApt}
       />
 
       <InfoSection
         detailInfo={detailInfo}
-        onInfoChange={updates => saveInfo(apt.id, updates)}
-        onAutoStation={() => autoFetchStation(apt)}
-        onAutoCommute={() => autoFetchCommute(apt)}
-        onAutoSchool={() => autoFetchSchool(apt)}
+        onAutoRefresh={() => Promise.allSettled([
+          autoFetchStation(apt),
+          autoFetchCommute(apt),
+          autoFetchSchool(apt),
+          autoFetchBuilding(apt),
+        ])}
       />
 
       <MapSection apt={apt} />
