@@ -9,9 +9,10 @@ interface NewsItem {
 
 interface Props {
   aptName: string
+  region?: string
 }
 
-export default function NewsSection({ aptName }: Props) {
+export default function NewsSection({ aptName, region }: Props) {
   const [items, setItems] = useState<NewsItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -19,13 +20,14 @@ export default function NewsSection({ aptName }: Props) {
   useEffect(() => {
     if (!aptName) return
     fetchNews(aptName)
-  }, [aptName])
+  }, [aptName, region])
 
   async function fetchNews(name: string) {
     setLoading(true)
     setError(false)
     try {
-      const query = `${name} 아파트`
+      // 지역명을 붙여 동명(同名) 브랜드 아파트의 타지역 뉴스 과매칭 방지
+      const query = [region, name, '아파트'].filter(Boolean).join(' ')
       const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=ko&gl=KR&ceid=KR:ko`
       const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=10`
       const res = await fetch(proxyUrl)
@@ -81,7 +83,7 @@ export default function NewsSection({ aptName }: Props) {
             <p className="text-2xl mb-2">📭</p>
             <p className="text-sm">관련 뉴스를 불러올 수 없습니다.</p>
             <a
-              href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(aptName + ' 아파트')}`}
+              href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent([region, aptName, '아파트'].filter(Boolean).join(' '))}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block mt-3 text-xs text-primary underline"

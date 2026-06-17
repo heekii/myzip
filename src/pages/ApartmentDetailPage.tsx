@@ -9,12 +9,13 @@ import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
-import type { Apartment, ApartmentDetail, Memo, RealTxItem } from '@/types'
+import type { Apartment, ApartmentDetail, ApartmentVisit, Memo, RealTxItem } from '@/types'
 import PriceSection from './detail/PriceSection'
 import InfoSection from './detail/InfoSection'
 import MapSection from './detail/MapSection'
 import NewsSection from './detail/NewsSection'
 import MemoSection from './detail/MemoSection'
+import VisitSection from './detail/VisitSection'
 
 const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string
 const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
@@ -27,6 +28,7 @@ export default function ApartmentDetailPage() {
 
   const [apt, setApt] = useState<Apartment | null>(null)
   const [detailInfo, setDetailInfo] = useState<Partial<ApartmentDetail>>({})
+  const [visitInfo, setVisitInfo] = useState<Partial<ApartmentVisit>>({})
   const [memos, setMemos] = useState<Memo[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -55,11 +57,13 @@ export default function ApartmentDetailPage() {
       setApt(apartment)
       setPageTitle(apartment.name)
 
-      const [infoData, memoData] = await Promise.all([
+      const [infoData, visitData, memoData] = await Promise.all([
         loadInfo(apartment),
+        loadVisit(apartment),
         loadMemos(apartment),
       ])
       setDetailInfo(infoData)
+      setVisitInfo(visitData)
       setMemos(memoData)
 
       autoFill(apartment, infoData)
@@ -80,6 +84,17 @@ export default function ApartmentDetailPage() {
       query(collection(db, 'apartments', apartment.id, 'memos'), orderBy('createdAt', 'desc'))
     )
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as Memo))
+  }
+
+  async function loadVisit(apartment: Apartment): Promise<Partial<ApartmentVisit>> {
+    if (isGuest) return guestDB.getVisit(apartment.id)
+    try {
+      const snap = await getDoc(doc(db, 'apartments', apartment.id, 'visits', 'latest'))
+      return snap.exists() ? (snap.data() as Partial<ApartmentVisit>) : {}
+    } catch {
+      alert('방문 데이터 불러오기에 실패했습니다. 잠시 후 다시 시도해주세요.')
+      return {}
+    }
   }
 
   async function handleDelete() {
@@ -256,6 +271,22 @@ export default function ApartmentDetailPage() {
     setDetailInfo(prev => ({ ...prev, ...updates }))
   }
 
+  async function saveVisit(aptId: string, updates: Partial<ApartmentVisit>) {
+    if (isGuest) {
+      guestDB.setVisit(aptId, updates)
+      setVisitInfo(prev => ({ ...prev, ...updates }))
+      return
+    }
+
+    try {
+      const { setDoc } = await import('firebase/firestore')
+      await setDoc(doc(db, 'apartments', aptId, 'visits', 'latest'), updates, { merge: true })
+      setVisitInfo(prev => ({ ...prev, ...updates }))
+    } catch {
+      alert('방문 데이터 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.')
+    }
+  }
+
   // ── Summary from cached real tx items ─────────────────────────────────────
 
   const summary = useMemo(() => {
@@ -331,7 +362,9 @@ export default function ApartmentDetailPage() {
       />
 
       <InfoSection
+        aptId={apt.id}
         detailInfo={detailInfo}
+        onSaveInfo={(updates) => saveInfo(apt.id, updates)}
         onAutoRefresh={() => Promise.allSettled([
           autoFetchStation(apt),
           autoFetchCommute(apt),
@@ -340,9 +373,14 @@ export default function ApartmentDetailPage() {
         ])}
       />
 
+      <VisitSection
+        visit={visitInfo}
+        onSave={(updates) => saveVisit(apt.id, updates)}
+      />
+
       <MapSection apt={apt} />
 
-      <NewsSection aptName={apt.name} />
+      <NewsSection aptName={apt.name} region={apt.region} />
 
       <MemoSection
         apt={apt}
