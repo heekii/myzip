@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
+import Icon, { type IconName } from '@/components/Icon'
 
-const ITEMS = [
-  { to: '/dashboard', icon: '📊', label: '대시보드' },
-  { to: '/compare',   icon: '📋', label: '비교' },
-  { to: '/register',  icon: '➕', label: '등록' },
-  { to: '/profile',   icon: '👤', label: '프로필' },
+const ITEMS: { to: string; icon: IconName; label: string }[] = [
+  { to: '/dashboard', icon: 'dashboard', label: '대시보드' },
+  { to: '/compare',   icon: 'compare',   label: '비교' },
+  { to: '/register',  icon: 'register',  label: '등록' },
+  { to: '/profile',   icon: 'profile',   label: '프로필' },
 ]
 
 export default function BottomNav() {
@@ -21,7 +22,7 @@ export default function BottomNav() {
                 }`
               }
             >
-              <span className="text-xl">{icon}</span>
+              <Icon name={icon} className="w-6 h-6" />
               {label}
             </NavLink>
           </li>

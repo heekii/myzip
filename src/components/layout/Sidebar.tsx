@@ -2,16 +2,17 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
+import Icon, { type IconName } from '@/components/Icon'
 
 interface Props {
   open: boolean
   onClose: () => void
 }
 
-const NAV = [
-  { to: '/dashboard', icon: '📊', label: '대시보드' },
-  { to: '/compare', icon: '📋', label: '단지 비교' },
-  { to: '/register', icon: '➕', label: '아파트 등록' },
+const NAV: { to: string; icon: IconName; label: string }[] = [
+  { to: '/dashboard', icon: 'dashboard', label: '대시보드' },
+  { to: '/compare', icon: 'compare', label: '단지 비교' },
+  { to: '/register', icon: 'register', label: '아파트 등록' },
 ]
 
 export default function Sidebar({ open, onClose }: Props) {
@@ -60,7 +61,7 @@ export default function Sidebar({ open, onClose }: Props) {
               }`
             }
           >
-            <span className="w-5 text-center">{icon}</span>
+            <Icon name={icon} className="w-5 h-5 shrink-0" />
             {label}
           </NavLink>
         ))}
@@ -77,7 +78,7 @@ export default function Sidebar({ open, onClose }: Props) {
             }`
           }
         >
-          <span className="w-5 text-center">👤</span>
+          <Icon name="profile" className="w-5 h-5 shrink-0" />
           프로필/설정
         </NavLink>
 
@@ -86,7 +87,7 @@ export default function Sidebar({ open, onClose }: Props) {
             onClick={handleLogout}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text hover:bg-blue-50 hover:text-primary transition-all"
           >
-            <span className="w-5 text-center">🚪</span>
+            <Icon name="logout" className="w-5 h-5 shrink-0" />
             로그아웃
           </button>
         ) : (
@@ -95,7 +96,7 @@ export default function Sidebar({ open, onClose }: Props) {
             onClick={onClose}
             className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-text hover:bg-blue-50 hover:text-primary transition-all"
           >
-            <span className="w-5 text-center">🔑</span>
+            <Icon name="login" className="w-5 h-5 shrink-0" />
             로그인
           </NavLink>
         )}

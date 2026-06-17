@@ -1,4 +1,5 @@
 import { useUIStore } from '@/store/uiStore'
+import Icon from '@/components/Icon'
 
 interface Props {
   onMenuClick: () => void
@@ -16,7 +17,7 @@ export default function Header({ onMenuClick }: Props) {
           className="hidden max-md:flex items-center justify-center w-9 h-9 rounded-lg text-text-secondary hover:bg-slate-100 transition-colors"
           aria-label="메뉴 열기"
         >
-          ☰
+          <Icon name="menu" className="w-5 h-5" />
         </button>
         <span className="text-base font-semibold">{pageTitle}</span>
       </div>
