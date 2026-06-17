@@ -39,13 +39,9 @@ export default function Sidebar({ open, onClose }: Props) {
       <NavLink
         to="/dashboard"
         onClick={onClose}
-        className="h-[60px] px-5 border-b border-border flex items-center gap-3 flex-shrink-0 hover:opacity-80 transition-opacity"
+        className="h-[60px] px-5 border-b border-border flex items-center flex-shrink-0 hover:opacity-80 transition-opacity"
       >
-        <span className="text-2xl">🏠</span>
-        <div>
-          <div className="text-sm font-bold text-primary leading-tight">내집마련 트래커</div>
-          <div className="text-[11px] text-text-muted">부동산 시세 추적 서비스</div>
-        </div>
+        <img src="/logo-hori.png" alt="myzip" className="h-8 w-auto" />
       </NavLink>
 
       {/* Nav */}

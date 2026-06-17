@@ -67,8 +67,18 @@ export default function LoginPage() {
         createdAt: serverTimestamp(),
       }, { merge: true })
       navigate('/dashboard')
-    } catch {
-      setError('Google 로그인에 실패했습니다.')
+    } catch (err) {
+      console.error('Google 로그인 에러:', err)
+      const errMsg = err instanceof Error ? err.message : String(err)
+      if (errMsg.includes('popup-blocked')) {
+        setError('팝업이 차단되었습니다. 팝업 허용 설정을 확인해주세요.')
+      } else if (errMsg.includes('auth/operation-not-allowed')) {
+        setError('Google 로그인이 활성화되지 않았습니다. 관리자에게 문의하세요.')
+      } else if (errMsg.includes('auth/unauthorized-domain')) {
+        setError('현재 도메인에서 Google 로그인을 지원하지 않습니다.')
+      } else {
+        setError(`Google 로그인 실패: ${errMsg}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -78,9 +88,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-4xl mb-3">🏠</div>
-          <h1 className="text-2xl font-bold text-text">내집마련 트래커</h1>
-          <p className="text-text-muted text-sm mt-1">부동산 시세 추적 서비스</p>
+          <img src="/logo-verti.png" alt="myzip" className="h-24 w-auto mx-auto mb-3" />
+          <p className="text-text-muted text-sm">부동산 시세 추적 서비스</p>
         </div>
 
         <div className="card">
