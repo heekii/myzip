@@ -6,11 +6,9 @@ import { useAuthStore } from '@/store/authStore'
 import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const kakao: any
-
 const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
 const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
+const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string
 const STATIONS = {
   gangnam: { name: '강남역', lng: 127.027621, lat: 37.497942 },
   yeouido: { name: '여의도역', lng: 126.924171, lat: 37.521574 },
@@ -50,40 +48,38 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  const searchByName = useCallback((q: string) => {
+  // JS SDK(kakao.maps.services)는 JS 키 도메인 화이트리스트에 묶여 새 도메인에서 빈 결과가 나므로,
+  // 도메인 제한이 없는 REST 키워드 검색으로 목록을 불러온다(상세페이지와 동일 패턴).
+  const searchByName = useCallback(async (q: string) => {
     try {
-      const ps = new kakao.maps.services.Places()
-      const pages = [1, 2, 3]
-      const collected: KakaoPlace[] = []
-      let done = 0
-
       const kakaoQuery = q.endsWith('아파트') ? q : `${q} 아파트`
-      pages.forEach(page => {
-        ps.keywordSearch(kakaoQuery, (result: KakaoPlace[], status: string) => {
-          if (status === kakao.maps.services.Status.OK) collected.push(...result)
-          done++
-          if (done === pages.length) {
-            const seen = new Set<string>()
-            setSuggestions(
-              collected
-                .filter(p => {
-                  const cat = p.category_name ?? ''
-                  return cat.includes('아파트') || cat.includes('주거')
-                })
-                .filter(p => {
-                  const key = p.place_name + '|' + (p.road_address_name || p.address_name)
-                  if (seen.has(key)) return false
-                  seen.add(key)
-                  return true
-                })
-                .map(p => ({
-                  name: p.place_name.replace(/아파트$/, '').trim(),
-                  address: p.road_address_name || p.address_name,
-                }))
-            )
-          }
-        }, { size: 15, page })
-      })
+      const pages = await Promise.all(
+        [1, 2, 3].map(page =>
+          fetch(
+            `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(kakaoQuery)}&size=15&page=${page}`,
+            { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+          ).then(r => (r.ok ? r.json() : { documents: [] })).catch(() => ({ documents: [] }))
+        )
+      )
+      const collected: KakaoPlace[] = pages.flatMap(p => (p.documents ?? []) as KakaoPlace[])
+      const seen = new Set<string>()
+      setSuggestions(
+        collected
+          .filter(p => {
+            const cat = p.category_name ?? ''
+            return cat.includes('아파트') || cat.includes('주거')
+          })
+          .filter(p => {
+            const key = p.place_name + '|' + (p.road_address_name || p.address_name)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+          .map(p => ({
+            name: p.place_name.replace(/아파트$/, '').trim(),
+            address: p.road_address_name || p.address_name,
+          }))
+      )
     } catch {
       setSuggestions([])
     }
@@ -117,20 +113,18 @@ export default function RegisterPage() {
     let bCode = ''
 
     try {
-      const geocoder = new kakao.maps.services.Geocoder()
-      await new Promise<void>(resolve => {
-        geocoder.addressSearch(address, (result: KakaoGeoResult[], status: string) => {
-          if (status === kakao.maps.services.Status.OK && result[0]?.address) {
-            const addr = result[0].address
-            region = `${addr.region_1depth_name} ${addr.region_2depth_name}`.trim()
-            lat = parseFloat(result[0].y)
-            lng = parseFloat(result[0].x)
-            bCode = addr.b_code || ''
-            lawdCd = bCode ? bCode.substring(0, 5) : null
-          }
-          resolve()
-        })
-      })
+      const res = await fetch(
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&size=1`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
+      ).then(r => (r.ok ? r.json() : null))
+      const addr = res?.documents?.[0]?.address
+      if (addr) {
+        region = `${addr.region_1depth_name} ${addr.region_2depth_name}`.trim()
+        lat = parseFloat(addr.y)
+        lng = parseFloat(addr.x)
+        bCode = addr.b_code || ''
+        lawdCd = bCode ? bCode.substring(0, 5) : null
+      }
     } catch { /* geocoding 실패 시 기본값으로 진행 */ }
 
     const base: RegisterData = {
@@ -343,16 +337,6 @@ interface KakaoPlace {
   category_name?: string
   road_address_name: string
   address_name: string
-}
-
-interface KakaoGeoResult {
-  y: string
-  x: string
-  address: {
-    region_1depth_name: string
-    region_2depth_name: string
-    b_code: string
-  }
 }
 
 // ─── API helpers ───────────────────────────────────────────────────────────────
