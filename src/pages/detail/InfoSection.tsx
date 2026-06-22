@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ApartmentDetail } from '@/types'
 
 const COMMUTE_SPEED = (mins: string) => {
@@ -8,16 +8,53 @@ const COMMUTE_SPEED = (mins: string) => {
 }
 
 interface Props {
+  aptId: string
   detailInfo: Partial<ApartmentDetail>
   onAutoRefresh: () => Promise<unknown>
+  onSaveInfo: (updates: Partial<ApartmentDetail>) => Promise<void>
 }
 
-export default function InfoSection({ detailInfo, onAutoRefresh }: Props) {
+export default function InfoSection({ aptId, detailInfo, onAutoRefresh, onSaveInfo }: Props) {
   const [refreshing, setRefreshing] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<Partial<ApartmentDetail>>({})
+
+  useEffect(() => {
+    setForm({
+      nearStation: detailInfo.nearStation ?? '',
+      stationDist: detailInfo.stationDist ?? '',
+      schoolName: detailInfo.schoolName ?? '',
+      floorAreaRatio: detailInfo.floorAreaRatio ?? '',
+      buildingCoverage: detailInfo.buildingCoverage ?? '',
+      commuteGangnam: detailInfo.commuteGangnam ?? '',
+      commuteYeouido: detailInfo.commuteYeouido ?? '',
+      commuteJongno: detailInfo.commuteJongno ?? '',
+    })
+  }, [aptId, detailInfo])
 
   async function handleRefresh() {
     setRefreshing(true)
     try { await onAutoRefresh() } finally { setRefreshing(false) }
+  }
+
+  async function handleSaveManual() {
+    setSaving(true)
+    try {
+      await onSaveInfo({
+        nearStation: form.nearStation?.trim() || undefined,
+        stationDist: form.stationDist?.trim() || undefined,
+        schoolName: form.schoolName?.trim() || undefined,
+        floorAreaRatio: form.floorAreaRatio?.trim() || undefined,
+        buildingCoverage: form.buildingCoverage?.trim() || undefined,
+        commuteGangnam: form.commuteGangnam?.trim() || undefined,
+        commuteYeouido: form.commuteYeouido?.trim() || undefined,
+        commuteJongno: form.commuteJongno?.trim() || undefined,
+      })
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const val = (key: keyof ApartmentDetail) => String((detailInfo as any)[key] ?? '').trim() || '-'
@@ -27,21 +64,54 @@ export default function InfoSection({ detailInfo, onAutoRefresh }: Props) {
     <div className="card">
       <div className="card-header">
         <h3 className="card-title">단지 상세 정보</h3>
-        <button type="button" className="btn btn-secondary btn-sm" disabled={refreshing} onClick={handleRefresh}>
-          {refreshing ? '조회 중...' : '정보 새로고침'}
-        </button>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={() => setEditing(false)}>취소</button>
+              <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={handleSaveManual}>
+                {saving ? '저장 중...' : '직접입력 저장'}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditing(true)}>
+              직접입력
+            </button>
+          )}
+          <button type="button" className="btn btn-secondary btn-sm" disabled={refreshing} onClick={handleRefresh}>
+            {refreshing ? '조회 중...' : '정보 새로고침'}
+          </button>
+        </div>
       </div>
 
       <div className="card-body space-y-6">
         {!hasAny && !refreshing && (
-          <p className="text-sm text-text-muted text-center py-2">정보를 불러오는 중이에요. 잠시 후 새로고침을 눌러주세요.</p>
+          <p className="text-sm text-text-muted text-center py-2">
+            자동 조회 데이터가 아직 없어요. 잠시 후 새로고침을 누르거나 직접입력으로 먼저 기록해둘 수 있어요.
+          </p>
         )}
 
         {/* ── 교통 ── */}
         <Section title="🚇 교통">
           <div className="grid grid-cols-2 gap-3">
-            <InfoItem label="가장 가까운 역" value={val('nearStation')} loading={refreshing} />
-            <InfoItem label="역까지 도보" value={detailInfo.stationDist ? `${detailInfo.stationDist}m` : '-'} loading={refreshing} />
+            <InfoItem
+              label="가장 가까운 역"
+              value={val('nearStation')}
+              loading={refreshing}
+              fallbackText="자동 조회 역 정보 없음"
+              editing={editing}
+              editValue={form.nearStation ?? ''}
+              onEdit={v => setForm(prev => ({ ...prev, nearStation: v }))}
+            />
+            <InfoItem
+              label="역까지 도보"
+              value={detailInfo.stationDist ? `${detailInfo.stationDist}m` : '-'}
+              loading={refreshing}
+              fallbackText="자동 조회 도보거리 없음"
+              editing={editing}
+              editValue={form.stationDist ?? ''}
+              editSuffix="m"
+              onEdit={v => setForm(prev => ({ ...prev, stationDist: v.replace(/[^0-9]/g, '') }))}
+            />
             <InfoItem label="역세권 여부" value={detailInfo.isStationZone === 'yes' ? '역세권' : detailInfo.isStationZone === 'no' ? '비역세권' : '-'} loading={refreshing} />
           </div>
         </Section>
@@ -59,7 +129,16 @@ export default function InfoSection({ detailInfo, onAutoRefresh }: Props) {
               return (
                 <div key={key} className="card p-3 text-center">
                   <p className="text-xs text-text-muted mb-1">{label}</p>
-                  {refreshing && !raw ? (
+                  {editing ? (
+                    <div className="max-w-[120px] mx-auto">
+                      <input
+                        className="form-input text-center"
+                        value={(form as any)[key] ?? ''}
+                        placeholder="분"
+                        onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value.replace(/[^0-9]/g, '') }))}
+                      />
+                    </div>
+                  ) : refreshing && !raw ? (
                     <div className="h-8 bg-slate-100 rounded animate-pulse mx-auto w-12" />
                   ) : raw ? (
                     <>
@@ -67,7 +146,7 @@ export default function InfoSection({ detailInfo, onAutoRefresh }: Props) {
                       {!isNaN(mins) && <p className="text-xs text-text-muted">분</p>}
                     </>
                   ) : (
-                    <p className="text-lg text-text-muted">-</p>
+                    <p className="text-xs text-text-muted">자동 조회 없음</p>
                   )}
                 </div>
               )
@@ -77,14 +156,40 @@ export default function InfoSection({ detailInfo, onAutoRefresh }: Props) {
 
         {/* ── 교육 ── */}
         <Section title="🏫 교육">
-          <InfoItem label="인근 초등학교" value={val('schoolName')} loading={refreshing} />
+          <InfoItem
+            label="인근 초등학교"
+            value={val('schoolName')}
+            loading={refreshing}
+            fallbackText="자동 조회 학교 정보 없음"
+            editing={editing}
+            editValue={form.schoolName ?? ''}
+            onEdit={v => setForm(prev => ({ ...prev, schoolName: v }))}
+          />
         </Section>
 
         {/* ── 건축 ── */}
         <Section title="🏗️ 건축">
           <div className="grid grid-cols-2 gap-3">
-            <InfoItem label="용적률" value={detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-'} loading={refreshing} />
-            <InfoItem label="건폐율" value={detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-'} loading={refreshing} />
+            <InfoItem
+              label="용적률"
+              value={detailInfo.floorAreaRatio ? `${detailInfo.floorAreaRatio}%` : '-'}
+              loading={refreshing}
+              fallbackText="자동 조회 용적률 없음"
+              editing={editing}
+              editValue={form.floorAreaRatio ?? ''}
+              editSuffix="%"
+              onEdit={v => setForm(prev => ({ ...prev, floorAreaRatio: v.replace(/[^0-9.]/g, '') }))}
+            />
+            <InfoItem
+              label="건폐율"
+              value={detailInfo.buildingCoverage ? `${detailInfo.buildingCoverage}%` : '-'}
+              loading={refreshing}
+              fallbackText="자동 조회 건폐율 없음"
+              editing={editing}
+              editValue={form.buildingCoverage ?? ''}
+              editSuffix="%"
+              onEdit={v => setForm(prev => ({ ...prev, buildingCoverage: v.replace(/[^0-9.]/g, '') }))}
+            />
           </div>
         </Section>
       </div>
@@ -101,12 +206,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function InfoItem({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
+function InfoItem({
+  label,
+  value,
+  loading,
+  fallbackText,
+  editing,
+  editValue,
+  editSuffix,
+  onEdit,
+}: {
+  label: string
+  value: string
+  loading?: boolean
+  fallbackText?: string
+  editing?: boolean
+  editValue?: string
+  editSuffix?: string
+  onEdit?: (next: string) => void
+}) {
   return (
     <div className="bg-bg rounded-lg px-3 py-2">
       <p className="text-xs text-text-muted mb-0.5">{label}</p>
-      {loading && value === '-' ? (
+      {editing && onEdit ? (
+        <div className="flex items-center gap-2">
+          <input className="form-input py-2" value={editValue ?? ''} onChange={e => onEdit(e.target.value)} />
+          {editSuffix && <span className="text-xs text-text-muted">{editSuffix}</span>}
+        </div>
+      ) : loading && value === '-' ? (
         <div className="h-4 bg-slate-100 rounded animate-pulse w-3/4 mt-1" />
+      ) : value === '-' && fallbackText ? (
+        <p className="text-xs text-text-muted">{fallbackText}</p>
       ) : (
         <p className="text-sm font-semibold text-text">{value}</p>
       )}

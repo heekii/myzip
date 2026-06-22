@@ -50,6 +50,27 @@ export interface ApartmentDetail {
   updatedAt?: Timestamp
 }
 
+export type VisitStatus = 'not-planned' | 'scheduled' | 'visited' | 'on-hold'
+export type DecisionStatus = 'active' | 'eliminated' | 'finalist'
+
+export interface ApartmentVisit {
+  status?: VisitStatus
+  decisionStatus?: DecisionStatus
+  eliminationReason?: string
+  scheduledAt?: string
+  visitedAt?: string
+  buildingCondition?: string
+  unitCondition?: string
+  interiorCondition?: string
+  defectNotes?: string
+  tenantStatus?: string
+  brokerNotes?: string
+  askingPriceNote?: string
+  expectedPriceNote?: string
+  nextAction?: string
+  updatedAt?: Timestamp
+}
+
 export interface Memo {
   id: string
   content: string

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
-import type { Apartment, ApartmentDetail } from '@/types'
+import type { Apartment, ApartmentDetail, ApartmentVisit, DecisionStatus } from '@/types'
 
 const FACING_MAP: Record<string, string> = {
   south: '남향', 'south-east': '남동향', 'south-west': '남서향',
@@ -13,6 +13,24 @@ const FACING_MAP: Record<string, string> = {
 }
 
 const MAX_SELECT = 4
+const VISIT_STATUS_LABEL: Record<string, string> = {
+  'not-planned': '미정',
+  scheduled: '방문 예정',
+  visited: '방문 완료',
+  'on-hold': '보류',
+}
+const DECISION_STATUS_LABEL: Record<DecisionStatus, string> = {
+  active: '검토중',
+  eliminated: '탈락',
+  finalist: '최종 후보',
+}
+const DECISION_TAG_CLASS: Record<DecisionStatus, string> = {
+  active: 'bg-slate-100 text-slate-700',
+  eliminated: 'bg-red-50 text-danger',
+  finalist: 'bg-emerald-50 text-emerald-700',
+}
+type CompareFilter = 'all' | 'survivors' | 'finalists'
+type CompareSort = 'newest' | 'decision'
 
 export default function ComparePage() {
   const { user, isGuest } = useAuthStore()
@@ -21,6 +39,9 @@ export default function ComparePage() {
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [infoMap, setInfoMap] = useState<Record<string, Partial<ApartmentDetail>>>({})
+  const [visitMap, setVisitMap] = useState<Record<string, Partial<ApartmentVisit>>>({})
+  const [filter, setFilter] = useState<CompareFilter>('survivors')
+  const [sortBy, setSortBy] = useState<CompareSort>('decision')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,7 +58,10 @@ export default function ComparePage() {
     setLoading(true)
     try {
       if (isGuest) {
-        setApartments(guestDB.getApartments())
+        const apts = guestDB.getApartments()
+        setApartments(apts)
+        const visitEntries = Object.fromEntries(apts.map(apt => [apt.id, guestDB.getVisit(apt.id)]))
+        setVisitMap(visitEntries)
       } else if (user) {
         const snap = await getDocs(
           query(collection(db, 'apartments'), where('userId', '==', user.uid))
@@ -45,6 +69,17 @@ export default function ComparePage() {
         const apts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Apartment))
         apts.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))
         setApartments(apts)
+        const visitSnaps = await Promise.all(
+          apts.map(async apt => {
+            try {
+              const visitSnap = await getDoc(doc(db, 'apartments', apt.id, 'visits', 'latest'))
+              return [apt.id, visitSnap.exists() ? (visitSnap.data() as Partial<ApartmentVisit>) : {}] as const
+            } catch {
+              return [apt.id, {}] as const
+            }
+          })
+        )
+        setVisitMap(Object.fromEntries(visitSnaps))
       }
     } finally {
       setLoading(false)
@@ -60,23 +95,58 @@ export default function ComparePage() {
 
     setSelected(prev => [...prev, id])
 
-    // load info if not cached
-    if (infoMap[id] !== undefined) return
+    // load info/visit if not cached
+    if (infoMap[id] !== undefined && visitMap[id] !== undefined) return
     try {
       let info: Partial<ApartmentDetail> = {}
+      let visit: Partial<ApartmentVisit> = {}
       if (isGuest) {
         info = guestDB.getInfo(id)
+        visit = guestDB.getVisit(id)
       } else {
-        const snap = await getDoc(doc(db, 'apartments', id, 'info', 'detail'))
-        if (snap.exists()) info = snap.data() as Partial<ApartmentDetail>
+        const [infoSnap, visitSnap] = await Promise.all([
+          getDoc(doc(db, 'apartments', id, 'info', 'detail')),
+          getDoc(doc(db, 'apartments', id, 'visits', 'latest')),
+        ])
+        if (infoSnap.exists()) info = infoSnap.data() as Partial<ApartmentDetail>
+        if (visitSnap.exists()) visit = visitSnap.data() as Partial<ApartmentVisit>
       }
       setInfoMap(prev => ({ ...prev, [id]: info }))
+      setVisitMap(prev => ({ ...prev, [id]: visit }))
     } catch {
       setInfoMap(prev => ({ ...prev, [id]: {} }))
+      setVisitMap(prev => ({ ...prev, [id]: {} }))
     }
   }
 
-  const selectedApts = selected.map(id => apartments.find(a => a.id === id)).filter(Boolean) as Apartment[]
+  const decisionValue = (id: string): DecisionStatus => {
+    const raw = visitMap[id]?.decisionStatus
+    return raw === 'eliminated' || raw === 'finalist' ? raw : 'active'
+  }
+
+  const visibleApartments = apartments
+    .filter(apt => {
+      const decision = decisionValue(apt.id)
+      if (filter === 'survivors') return decision !== 'eliminated'
+      if (filter === 'finalists') return decision === 'finalist'
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === 'newest') return 0
+      const rank = (status: DecisionStatus) => (status === 'finalist' ? 0 : status === 'active' ? 1 : 2)
+      return rank(decisionValue(a.id)) - rank(decisionValue(b.id))
+    })
+
+  const selectedApts = selected
+    .map(id => apartments.find(a => a.id === id))
+    .filter(Boolean)
+    .filter(a => {
+      if (!a) return false
+      const decision = decisionValue(a.id)
+      if (filter === 'survivors') return decision !== 'eliminated'
+      if (filter === 'finalists') return decision === 'finalist'
+      return true
+    }) as Apartment[]
 
   if (loading) {
     return (
@@ -105,14 +175,37 @@ export default function ComparePage() {
 
       {/* 선택 영역 */}
       <div className="card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm text-text">비교할 단지 선택</h3>
+        <div className="flex flex-col gap-2.5 mb-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-sm text-text">비교할 단지 선택</h3>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              필터 기준: {filter === 'all' ? '전체 단지' : filter === 'survivors' ? '생존 후보(검토중/최종 후보)' : '최종 후보만'}
+            </p>
+          </div>
           <span className="text-xs text-text-muted">{selected.length}/{MAX_SELECT}</span>
         </div>
+        <div className="grid grid-cols-1 gap-2 mb-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-[11px] text-text-muted">필터</span>
+            <select className="form-input text-sm" value={filter} onChange={e => setFilter(e.target.value as CompareFilter)}>
+              <option value="survivors">생존 후보</option>
+              <option value="finalists">최종 후보</option>
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <label className="block space-y-1">
+            <span className="text-[11px] text-text-muted">정렬</span>
+            <select className="form-input text-sm" value={sortBy} onChange={e => setSortBy(e.target.value as CompareSort)}>
+              <option value="decision">의사결정 우선</option>
+              <option value="newest">등록순</option>
+            </select>
+          </label>
+        </div>
         <div className="flex flex-wrap gap-2">
-          {apartments.map(apt => {
+          {visibleApartments.map(apt => {
             const isOn = selected.includes(apt.id)
             const disabled = !isOn && selected.length >= MAX_SELECT
+            const decision = decisionValue(apt.id)
             return (
               <button
                 key={apt.id}
@@ -128,11 +221,17 @@ export default function ComparePage() {
                 ].join(' ')}
               >
                 {apt.name}
+                <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${DECISION_TAG_CLASS[decision]}`}>
+                  {DECISION_STATUS_LABEL[decision]}
+                </span>
               </button>
             )
           })}
         </div>
-        {selected.length === 0 && (
+        {visibleApartments.length === 0 && (
+          <p className="text-xs text-text-muted mt-2">현재 필터에 해당하는 단지가 없습니다.</p>
+        )}
+        {visibleApartments.length > 0 && selected.length === 0 && (
           <p className="text-xs text-text-muted mt-2">단지를 선택하면 비교표가 나타납니다.</p>
         )}
       </div>
@@ -190,6 +289,49 @@ export default function ComparePage() {
                 <Row label="용적률" values={selectedApts.map(a => infoMap[a.id]?.floorAreaRatio ? `${infoMap[a.id]?.floorAreaRatio}%` : '-')} compare="min-num" />
                 <Row label="건폐율" values={selectedApts.map(a => infoMap[a.id]?.buildingCoverage ? `${infoMap[a.id]?.buildingCoverage}%` : '-')} compare="min-num" />
 
+                <GroupRow label="🧭 현장 방문" />
+                <Row
+                  label={<ResponsiveLabel mobile="결정" desktop="의사결정 상태" />}
+                  values={selectedApts.map(a => DECISION_STATUS_LABEL[decisionValue(a.id)] ?? DECISION_STATUS_LABEL.active)}
+                />
+                <Row
+                  label={<ResponsiveLabel mobile="탈락 사유" desktop="탈락 사유" />}
+                  values={selectedApts.map(a => {
+                    const decision = decisionValue(a.id)
+                    if (decision !== 'eliminated') return '-'
+                    return visitMap[a.id]?.eliminationReason?.trim() || '미입력'
+                  })}
+                  multiline
+                />
+                <Row
+                  label={<ResponsiveLabel mobile="상태" desktop="방문 상태" />}
+                  values={selectedApts.map(a => VISIT_STATUS_LABEL[visitMap[a.id]?.status ?? ''] || '-')}
+                />
+                <Row
+                  label={<ResponsiveLabel mobile="예정일" desktop="방문 예정일" />}
+                  values={selectedApts.map(a => visitMap[a.id]?.scheduledAt || '-')}
+                />
+                <Row
+                  label={<ResponsiveLabel mobile="실방문" desktop="실방문일" />}
+                  values={selectedApts.map(a => visitMap[a.id]?.visitedAt || '-')}
+                />
+                <Row label={<ResponsiveLabel mobile="동/호" desktop="동/호 상태" />} values={selectedApts.map(a => {
+                  const b = visitMap[a.id]?.buildingCondition?.trim()
+                  const u = visitMap[a.id]?.unitCondition?.trim()
+                  if (!b && !u) return '-'
+                  return [b, u].filter(Boolean).join(' / ')
+                })} multiline />
+                <Row
+                  label={<ResponsiveLabel mobile="하자" desktop="하자 메모" />}
+                  values={selectedApts.map(a => visitMap[a.id]?.defectNotes?.trim() || '-')}
+                  multiline
+                />
+                <Row
+                  label={<ResponsiveLabel mobile="액션" desktop="다음 액션" />}
+                  values={selectedApts.map(a => visitMap[a.id]?.nextAction?.trim() || '-')}
+                  multiline
+                />
+
               </tbody>
             </table>
           </div>
@@ -202,18 +344,19 @@ export default function ComparePage() {
 function GroupRow({ label }: { label: string }) {
   return (
     <tr className="bg-blue-50/60">
-      <td colSpan={99} className="sticky left-0 bg-blue-50/60 px-4 py-2 text-[11px] font-semibold text-primary uppercase tracking-wider">
+      <td colSpan={99} className="sticky left-0 bg-blue-50/60 px-3 sm:px-4 py-2 text-[11px] font-semibold text-primary uppercase tracking-wider">
         {label}
       </td>
     </tr>
   )
 }
 
-function Row({ label, values, compare, highlight }: {
-  label: string
+function Row({ label, values, compare, highlight, multiline }: {
+  label: ReactNode
   values: string[]
   compare?: 'min' | 'max' | 'min-num'
   highlight?: boolean[]
+  multiline?: boolean
 }) {
   // find best index for numeric comparison
   const bestIdx = (() => {
@@ -247,22 +390,39 @@ function Row({ label, values, compare, highlight }: {
     return -1
   })()
 
+  const isLabelText = typeof label === 'string'
+
   return (
     <tr className="hover:bg-slate-50/50">
-      <td className="sticky left-0 bg-white hover:bg-slate-50/50 px-4 py-3 text-xs text-text-muted font-medium whitespace-nowrap z-10">
-        {label}
+      <td
+        className={[
+          'sticky left-0 bg-white hover:bg-slate-50/50 px-3 sm:px-4 py-2.5 sm:py-3 text-xs text-text-muted font-medium z-10',
+          isLabelText ? 'whitespace-nowrap' : 'whitespace-normal leading-tight',
+        ].join(' ')}
+      >
+        {isLabelText ? <span className="block truncate max-w-[82px] sm:max-w-none">{label}</span> : label}
       </td>
       {values.map((v, i) => (
-        <td key={i} className="px-4 py-3 text-center text-sm">
+        <td key={i} className="px-3 sm:px-4 py-2.5 sm:py-3 text-center text-sm">
           <span className={[
             v === '-' ? 'text-text-muted' : 'text-text font-medium',
             i === bestIdx ? 'text-success font-bold' : '',
             highlight?.[i] ? 'text-success font-bold' : '',
-          ].filter(Boolean).join(' ')}>
+            multiline ? 'inline-block max-w-[112px] sm:max-w-[150px] text-[12px] sm:text-sm leading-5 sm:leading-6 whitespace-normal break-words text-left sm:text-center' : 'inline-block max-w-[112px] sm:max-w-none truncate',
+          ].filter(Boolean).join(' ')} title={v !== '-' ? v : undefined}>
             {v}
           </span>
         </td>
       ))}
     </tr>
+  )
+}
+
+function ResponsiveLabel({ mobile, desktop }: { mobile: string; desktop: string }) {
+  return (
+    <>
+      <span className="sm:hidden">{mobile}</span>
+      <span className="hidden sm:inline">{desktop}</span>
+    </>
   )
 }

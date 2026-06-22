@@ -1,9 +1,10 @@
-import type { Apartment, ApartmentDetail, PriceEntry, Memo } from '@/types'
+import type { Apartment, ApartmentDetail, ApartmentVisit, PriceEntry, Memo } from '@/types'
 
 const APT_KEY = 'guestApartments'
 const INFO_KEY = 'guestApartmentInfo'
 const PRICES_KEY = 'guestPrices'
 const MEMOS_KEY = 'guestMemos'
+const VISITS_KEY = 'guestVisits'
 
 // ── Apartments ────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,12 @@ function saveMemosAll(data: Record<string, Memo[]>) {
   sessionStorage.setItem(MEMOS_KEY, JSON.stringify(data))
 }
 
+// ── Visits ────────────────────────────────────────────────────────────────────
+
+function getVisitsAll(): Record<string, Partial<ApartmentVisit>> {
+  try { return JSON.parse(sessionStorage.getItem(VISITS_KEY) ?? '{}') } catch { return {} }
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const guestDB = {
@@ -70,9 +77,11 @@ export const guestDB = {
     const prices = getPricesAll()
     const memos = getMemosAll()
     const info = getInfoAll()
+    const visits = getVisitsAll()
     delete prices[id]; savePricesAll(prices)
     delete memos[id]; saveMemosAll(memos)
     delete info[id]; sessionStorage.setItem(INFO_KEY, JSON.stringify(info))
+    delete visits[id]; sessionStorage.setItem(VISITS_KEY, JSON.stringify(visits))
   },
 
   // Info
@@ -82,6 +91,14 @@ export const guestDB = {
   },
 
   getInfo: (id: string): Partial<ApartmentDetail> => getInfoAll()[id] ?? {},
+
+  // Visits
+  setVisit: (id: string, visit: Partial<ApartmentVisit>) => {
+    const all = getVisitsAll()
+    sessionStorage.setItem(VISITS_KEY, JSON.stringify({ ...all, [id]: { ...all[id], ...visit } }))
+  },
+
+  getVisit: (id: string): Partial<ApartmentVisit> => getVisitsAll()[id] ?? {},
 
   // Prices
   getPrices: (aptId: string): PriceEntry[] => {
