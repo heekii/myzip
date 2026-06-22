@@ -3,18 +3,23 @@ import { Link } from 'react-router-dom'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
+import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
 import type { Apartment } from '@/types'
 
 export default function DashboardPage() {
   const { user, isGuest } = useAuthStore()
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const activeId = useScenarioStore(s => s.activeId)
+  const [allApartments, setAllApartments] = useState<Apartment[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 시나리오가 지정되지 않은 기존 단지는 모든 시나리오에 노출
+  const apartments = allApartments.filter(a => !a.scenarioId || a.scenarioId === activeId)
 
   useEffect(() => {
     if (isGuest) {
-      setApartments(guestDB.getApartments())
+      setAllApartments(guestDB.getApartments())
       setLoading(false)
       return
     }
@@ -24,7 +29,7 @@ export default function DashboardPage() {
       .then(snap => {
         const apts = snap.docs.map(d => ({ id: d.id, ...d.data() } as Apartment))
         apts.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))
-        setApartments(apts)
+        setAllApartments(apts)
       })
       .finally(() => setLoading(false))
   }, [user, isGuest])
@@ -65,7 +70,7 @@ export default function DashboardPage() {
       {loading ? (
         <SkeletonGrid />
       ) : apartments.length === 0 ? (
-        <EmptyState />
+        <EmptyState filtered={allApartments.length > 0} />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {apartments.map(apt => <AptCard key={apt.id} apt={apt} />)}
@@ -159,15 +164,19 @@ function SkeletonGrid() {
   )
 }
 
-function EmptyState() {
+function EmptyState({ filtered }: { filtered: boolean }) {
   return (
     <div className="text-center py-16">
       <p className="text-4xl mb-3">🏢</p>
-      <p className="font-bold text-text mb-1">등록된 아파트가 없습니다</p>
-      <p className="text-sm text-text-muted mb-5">
-        관심 있는 아파트를 등록하고<br />시세 변화를 직접 추적해보세요.
+      <p className="font-bold text-text mb-1">
+        {filtered ? '이 시나리오에 단지가 없습니다' : '등록된 아파트가 없습니다'}
       </p>
-      <Link to="/register" className="btn btn-primary">첫 아파트 등록하기</Link>
+      <p className="text-sm text-text-muted mb-5">
+        {filtered
+          ? <>다른 시나리오를 선택하거나<br />이 시나리오에 단지를 등록해보세요.</>
+          : <>관심 있는 아파트를 등록하고<br />시세 변화를 직접 추적해보세요.</>}
+      </p>
+      <Link to="/register" className="btn btn-primary">{filtered ? '단지 등록하기' : '첫 아파트 등록하기'}</Link>
     </div>
   )
 }

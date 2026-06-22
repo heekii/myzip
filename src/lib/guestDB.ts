@@ -1,10 +1,11 @@
-import type { Apartment, ApartmentDetail, ApartmentVisit, PriceEntry, Memo } from '@/types'
+import type { Apartment, ApartmentDetail, ApartmentVisit, PriceEntry, Memo, Scenario } from '@/types'
 
 const APT_KEY = 'guestApartments'
 const INFO_KEY = 'guestApartmentInfo'
 const PRICES_KEY = 'guestPrices'
 const MEMOS_KEY = 'guestMemos'
 const VISITS_KEY = 'guestVisits'
+const SCENARIOS_KEY = 'guestScenarios'
 
 // ── Apartments ────────────────────────────────────────────────────────────────
 
@@ -99,6 +100,13 @@ export const guestDB = {
   },
 
   getVisit: (id: string): Partial<ApartmentVisit> => getVisitsAll()[id] ?? {},
+
+  // Scenarios
+  getScenarios: (): Scenario[] => {
+    try { return JSON.parse(sessionStorage.getItem(SCENARIOS_KEY) ?? '[]') } catch { return [] }
+  },
+
+  setScenarios: (list: Scenario[]) => sessionStorage.setItem(SCENARIOS_KEY, JSON.stringify(list)),
 
   // Prices
   getPrices: (aptId: string): PriceEntry[] => {

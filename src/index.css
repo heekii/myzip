@@ -81,4 +81,11 @@
   .apt-chip {
     @apply inline-block px-3 py-1 bg-slate-100 text-text-secondary text-xs font-semibold rounded-full;
   }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

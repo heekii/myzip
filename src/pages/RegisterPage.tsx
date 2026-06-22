@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { collection, addDoc, query, where, getDocs, serverTimestamp, setDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
+import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,6 +39,7 @@ interface RegisterData {
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { user, isGuest } = useAuthStore()
+  const activeScenarioId = useScenarioStore(s => s.activeId)
   const [aptName, setAptName] = useState('')
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
@@ -182,6 +184,7 @@ export default function RegisterPage() {
         maxFloor: registerData.maxFloor,
         lat: registerData.lat,
         lng: registerData.lng,
+        ...(activeScenarioId ? { scenarioId: activeScenarioId } : {}),
       }
 
       if (isGuest) {

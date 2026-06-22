@@ -1,8 +1,14 @@
 import type { Timestamp } from 'firebase/firestore'
 
+export interface Scenario {
+  id: string
+  name: string
+}
+
 export interface Apartment {
   id: string
   userId: string
+  scenarioId?: string
   name: string
   address: string
   region: string

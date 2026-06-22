@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
+import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
 import type { Apartment, ApartmentDetail, ApartmentVisit, DecisionStatus } from '@/types'
@@ -35,6 +36,7 @@ type CompareSort = 'newest' | 'decision'
 export default function ComparePage() {
   const { user, isGuest } = useAuthStore()
   const { setPageTitle, setHeaderRight } = useUIStore()
+  const activeScenarioId = useScenarioStore(s => s.activeId)
 
   const [apartments, setApartments] = useState<Apartment[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -53,6 +55,11 @@ export default function ComparePage() {
   useEffect(() => {
     loadApartments()
   }, [user, isGuest])
+
+  // 시나리오 전환 시 다른 세트의 선택이 남지 않도록 초기화
+  useEffect(() => {
+    setSelected([])
+  }, [activeScenarioId])
 
   async function loadApartments() {
     setLoading(true)
@@ -124,7 +131,10 @@ export default function ComparePage() {
     return raw === 'eliminated' || raw === 'finalist' ? raw : 'active'
   }
 
-  const visibleApartments = apartments
+  // 시나리오가 지정되지 않은 기존 단지는 모든 시나리오에 노출
+  const scenarioApts = apartments.filter(a => !a.scenarioId || a.scenarioId === activeScenarioId)
+
+  const visibleApartments = scenarioApts
     .filter(apt => {
       const decision = decisionValue(apt.id)
       if (filter === 'survivors') return decision !== 'eliminated'

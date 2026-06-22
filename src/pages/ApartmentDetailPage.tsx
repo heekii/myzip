@@ -7,6 +7,7 @@ import {
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
+import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
 import type { Apartment, ApartmentDetail, ApartmentVisit, Memo, RealTxItem } from '@/types'
@@ -25,6 +26,7 @@ export default function ApartmentDetailPage() {
   const navigate = useNavigate()
   const { user, isGuest } = useAuthStore()
   const { setPageTitle, setHeaderRight } = useUIStore()
+  const scenarios = useScenarioStore(s => s.scenarios)
 
   const [apt, setApt] = useState<Apartment | null>(null)
   const [detailInfo, setDetailInfo] = useState<Partial<ApartmentDetail>>({})
@@ -287,6 +289,21 @@ export default function ApartmentDetailPage() {
     }
   }
 
+  async function saveScenario(scenarioId: string) {
+    if (!apt) return
+    setApt({ ...apt, scenarioId })
+    if (isGuest) {
+      guestDB.updateApartment(apt.id, { scenarioId })
+      return
+    }
+    try {
+      const { updateDoc } = await import('firebase/firestore')
+      await updateDoc(doc(db, 'apartments', apt.id), { scenarioId })
+    } catch {
+      alert('시나리오 변경에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해주세요.')
+    }
+  }
+
   // ── Summary from cached real tx items ─────────────────────────────────────
 
   const summary = useMemo(() => {
@@ -330,8 +347,25 @@ export default function ApartmentDetailPage() {
     <div className="space-y-4">
       {/* 아파트 헤더 */}
       <div className="card p-5">
-        <h1 className="text-lg font-bold text-text">{apt.name}</h1>
-        {apt.address && <p className="text-sm text-text-muted mt-0.5">{apt.address}</p>}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-text">{apt.name}</h1>
+            {apt.address && <p className="text-sm text-text-muted mt-0.5">{apt.address}</p>}
+          </div>
+          {scenarios.length > 0 && (
+            <label className="shrink-0 text-right">
+              <span className="block text-[11px] text-text-muted mb-1">시나리오</span>
+              <select
+                className="form-input text-sm py-1.5"
+                value={apt.scenarioId ?? ''}
+                onChange={e => saveScenario(e.target.value)}
+              >
+                {!apt.scenarioId && <option value="" disabled>미배정</option>}
+                {scenarios.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
         {chips.length > 0 && (
           <div className="flex gap-2 mt-3 flex-wrap">
             {chips.map(c => <span key={c} className="apt-chip">{c}</span>)}

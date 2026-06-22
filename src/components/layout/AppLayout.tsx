@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import BottomNav from './BottomNav'
+import ScenarioSwitcher from './ScenarioSwitcher'
 import { useAuthStore } from '@/store/authStore'
+import { useScenarioStore } from '@/store/scenarioStore'
 import { Link } from 'react-router-dom'
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { isGuest } = useAuthStore()
+  const { user, isGuest } = useAuthStore()
+  const loadScenarios = useScenarioStore(s => s.load)
+
+  useEffect(() => {
+    if (user || isGuest) loadScenarios(user, isGuest)
+  }, [user, isGuest, loadScenarios])
 
   return (
     <div className="flex min-h-screen max-w-[1400px] mx-auto shadow-[0_0_40px_rgba(0,0,0,0.08)] bg-bg">
@@ -24,6 +31,8 @@ export default function AppLayout() {
 
       <div className="flex flex-col flex-1 min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
+
+        <ScenarioSwitcher />
 
         {isGuest && (
           <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-700 text-center">
