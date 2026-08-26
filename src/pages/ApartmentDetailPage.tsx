@@ -10,6 +10,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
+import { searchKeyword, searchCategory, searchAddress } from '@/lib/kakao'
 import type { Apartment, ApartmentDetail, ApartmentVisit, Memo, RealTxItem } from '@/types'
 import PriceSection from './detail/PriceSection'
 import InfoSection from './detail/InfoSection'
@@ -18,7 +19,6 @@ import NewsSection from './detail/NewsSection'
 import MemoSection from './detail/MemoSection'
 import VisitSection from './detail/VisitSection'
 
-const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string
 const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
 
 export default function ApartmentDetailPage() {
@@ -142,12 +142,8 @@ export default function ApartmentDetailPage() {
   async function getLatLng(apartment: Apartment): Promise<{ lat: number; lng: number } | null> {
     if (apartment.lat && apartment.lng) return { lat: apartment.lat, lng: apartment.lng }
     try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(apartment.name + ' 아파트')}&size=5`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      )
-      const data = await res.json()
-      const found = (data.documents || []).find((p: any) => p.category_name?.includes('아파트'))
+      const docs = await searchKeyword(apartment.name + ' 아파트', { size: 5 })
+      const found = docs.find(p => p.category_name?.includes('아파트'))
       if (!found) return null
       const lat = parseFloat(found.y), lng = parseFloat(found.x)
       setApt(prev => prev ? { ...prev, lat, lng } : prev)
@@ -165,14 +161,11 @@ export default function ApartmentDetailPage() {
     const loc = await getLatLng(apartment)
     if (!loc) return
     try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SW8&x=${loc.lng}&y=${loc.lat}&radius=1500&sort=distance&size=1`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      )
-      const data = await res.json()
-      const station = data.documents?.[0]
+      const docs = await searchCategory('SW8', loc, { radius: 1500, size: 1, sortByDistance: true })
+      const station = docs[0]
       if (!station) return
-      const dist = parseInt(station.distance)
+      const dist = parseInt(station.distance ?? '')
+      if (Number.isNaN(dist)) return
       await saveInfo(apartment.id, {
         nearStation: station.place_name,
         stationDist: String(dist),
@@ -211,12 +204,8 @@ export default function ApartmentDetailPage() {
     const loc = await getLatLng(apartment)
     if (!loc) return
     try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SC4&x=${loc.lng}&y=${loc.lat}&radius=1500&size=15`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      )
-      const data = await res.json()
-      const school = (data.documents || []).find((p: any) => p.place_name.includes('초등학교'))
+      const docs = await searchCategory('SC4', loc, { radius: 1500, size: 15 })
+      const school = docs.find(p => p.place_name.includes('초등학교'))
       if (!school) return
       await saveInfo(apartment.id, { schoolName: school.place_name })
     } catch { }
@@ -226,12 +215,8 @@ export default function ApartmentDetailPage() {
     if (!apartment.address) return
     try {
       // Step 1: geocode to get b_code
-      const geoRes = await fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(apartment.address)}&size=1`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      )
-      const geoData = await geoRes.json()
-      const bCode = geoData.documents?.[0]?.address?.b_code
+      const addr = await searchAddress(apartment.address)
+      const bCode = addr?.b_code
       if (!bCode) return
 
       // Step 2: get kaptCode from AptListService2

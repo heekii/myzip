@@ -74,6 +74,9 @@ export interface ApartmentVisit {
   askingPriceNote?: string
   expectedPriceNote?: string
   nextAction?: string
+  // 정성 점수(1~10) — 데이터로 자동 산출 불가한 카테고리는 수동 입력
+  infraScore?: number
+  schoolScore?: number
   updatedAt?: Timestamp
 }
 

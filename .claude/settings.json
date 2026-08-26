@@ -13,32 +13,45 @@
       "Bash(firebase --version)",
       "Bash(firebase deploy --only hosting)",
       "Bash(firebase projects:list)",
-      "Bash(npm install -g *)",
       "Bash(npm --version)",
+      "Bash(npm config *)",
+      "Bash(npm install)",
+      "Bash(npm install --include=dev)",
+      "Bash(npm install -g *)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
       "Bash(node --version)",
       "Bash(html-validate *)",
       "Bash(ls *)",
       "Bash(mkdir *)",
-      "Bash(curl -s \"https://myzip-de785.web.app/*\")",
-      "Bash(curl -s -H \"Authorization: KakaoAK *\" \"https://dapi.kakao.com/*\")",
-      "Bash(curl -s \"https://firestore.googleapis.com/*\")",
-      "PowerShell(npm --version)",
-      "PowerShell(cd \"d:/001_UXUI/08_부동산시세트래킹\"; $env:NODE_OPTIONS=\"--max-old-space-size=4096\"; npx vite build 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
-      "PowerShell(cd \"d:/001_UXUI/08_부동산시세트래킹\"; npx vite build --minify false 2>&1; Write-Host \"Exit: $LASTEXITCODE\")",
-      "Read(//d/001_UXUI/08_�ε���ü�Ʈ��ŷ/node_modules/**)",
-      "Read(//d/001_UXUI/08_�ε���ü�Ʈ��ŷ/**)",
-      "Bash(npm config *)",
-      "Bash(echo \"Exit: $?\")",
-      "Bash(echo \"TSC exit: $?\")",
-      "Bash(echo \"VITE exit: $?\")",
-      "Bash(npm install)",
-      "Bash(npm install --include=dev)",
-      "Bash(npm run build)",
-      "Bash(npm run dev)",
       "Bash(./node_modules/.bin/tsc *)",
       "Bash(./node_modules/.bin/vite *)",
+      "Bash(vercel --version)",
+      "Bash(vercel login *)",
+      "Bash(vercel deploy *)",
+      "Bash(vercel alias *)",
+      "Bash(vercel env *)",
+      "Bash(gcloud version *)",
+      "Bash(gcloud auth *)",
+      "Bash(claude mcp list)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s \"https://myzip-de785.web.app/*\")",
+      "Bash(curl -s \"https://myzip.vercel.app/*\")",
+      "Bash(curl -s \"https://firestore.googleapis.com/*\")",
+      "Bash(curl -s \"https://apis.data.go.kr/*\")",
+      "Bash(curl -s -H \"Referer: https://myzip.vercel.app/\" *)",
+      "PowerShell(npm --version)",
+      "PowerShell(npm run build*)",
+      "PowerShell(npx vite build*)",
+      "PowerShell(npx tsc --noEmit*)",
+      "PowerShell(node node_modules/typescript/bin/tsc --noEmit*)",
+      "PowerShell(python --version)",
       "PowerShell(python3 --version)",
-      "PowerShell(python --version)"
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Test-Path *)",
+      "Read(//d/001_UXUI/08_myzip/**)",
+      "Read(//c/Users/fninnoedu/AppData/Roaming/npm/**)"
     ],
     "deny": [
       "Bash(git push --force*)",
@@ -47,18 +60,6 @@
       "Bash(rm -rf*)",
       "Bash(firebase login:ci)",
       "Bash(npm install * --save)"
-    ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".claude\\auto-deploy.ps1\""
-          }
-        ]
-      }
     ]
   }
 }

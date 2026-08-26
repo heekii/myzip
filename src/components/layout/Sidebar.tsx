@@ -12,6 +12,7 @@ interface Props {
 const NAV: { to: string; icon: IconName; label: string }[] = [
   { to: '/dashboard', icon: 'dashboard', label: '대시보드' },
   { to: '/compare', icon: 'compare', label: '단지 비교' },
+  { to: '/ranking', icon: 'ranking', label: '점수·순위' },
   { to: '/register', icon: 'register', label: '아파트 등록' },
 ]
 

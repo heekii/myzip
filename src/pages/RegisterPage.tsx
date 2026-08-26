@@ -1,14 +1,14 @@
 import { useState, useRef, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { collection, addDoc, query, where, getDocs, serverTimestamp, setDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/store/authStore'
 import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
+import { searchKeyword, searchAddress as geocodeAddress, type KakaoPlace } from '@/lib/kakao'
 
 const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
 const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
-const KAKAO_REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string
 const STATIONS = {
   gangnam: { name: '강남역', lng: 127.027621, lat: 37.497942 },
   yeouido: { name: '여의도역', lng: 126.924171, lat: 37.521574 },
@@ -48,20 +48,15 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  // JS SDK(kakao.maps.services)는 JS 키 도메인 화이트리스트에 묶여 새 도메인에서 빈 결과가 나므로,
-  // 도메인 제한이 없는 REST 키워드 검색으로 목록을 불러온다(상세페이지와 동일 패턴).
+  // JS SDK(kakao.maps.services)는 JS 키에 등록된 도메인에서만 동작한다.
+  // 배포 도메인을 카카오 콘솔에 등록해 두었으므로, 도메인 제한이 없는 REST 키 대신 SDK 를 쓴다.
   const searchByName = useCallback(async (q: string) => {
     try {
       const kakaoQuery = q.endsWith('아파트') ? q : `${q} 아파트`
       const pages = await Promise.all(
-        [1, 2, 3].map(page =>
-          fetch(
-            `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(kakaoQuery)}&size=15&page=${page}`,
-            { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-          ).then(r => (r.ok ? r.json() : { documents: [] })).catch(() => ({ documents: [] }))
-        )
+        [1, 2, 3].map(page => searchKeyword(kakaoQuery, { size: 15, page }))
       )
-      const collected: KakaoPlace[] = pages.flatMap(p => (p.documents ?? []) as KakaoPlace[])
+      const collected: KakaoPlace[] = pages.flat()
       const seen = new Set<string>()
       setSuggestions(
         collected
@@ -113,11 +108,7 @@ export default function RegisterPage() {
     let bCode = ''
 
     try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}&size=1`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      ).then(r => (r.ok ? r.json() : null))
-      const addr = res?.documents?.[0]?.address
+      const addr = await geocodeAddress(address)
       if (addr) {
         region = `${addr.region_1depth_name} ${addr.region_2depth_name}`.trim()
         lat = parseFloat(addr.y)
@@ -299,6 +290,11 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
+
+      <p className="text-center text-sm text-text-muted mt-4">
+        여러 단지를 한 번에 넣고 싶다면{' '}
+        <Link to="/import" className="text-primary underline">목록 붙여넣기</Link>
+      </p>
     </div>
   )
 
@@ -328,15 +324,6 @@ export default function RegisterPage() {
       setError('주소 검색을 사용할 수 없습니다.')
     }
   }
-}
-
-// ─── Kakao SDK types ───────────────────────────────────────────────────────────
-
-interface KakaoPlace {
-  place_name: string
-  category_name?: string
-  road_address_name: string
-  address_name: string
 }
 
 // ─── API helpers ───────────────────────────────────────────────────────────────

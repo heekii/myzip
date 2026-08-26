@@ -9,6 +9,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=cc53b3da1664f19204dfe8ea42536825&libraries=services"></script>
 </head>
 <body>
 <div class="app-layout">
@@ -379,7 +380,26 @@
 <script>
   const MOLIT_API_KEY = '90072a18f3a77423afbb4652e22f161c810ae15acc14654ea0ea3ec276ca4fce';
   const ODSAY_KEY = '5QCQZr+fdJhD2Blcte1aWA';
-  const KAKAO_REST_KEY = '4361e30ce685349654b54d472a22e974';
+
+  // ── Kakao 장소/좌표 조회 ──
+  // REST 키(KakaoAK 헤더)는 도메인 제한이 걸리지 않아 브라우저에 두면 누구나 도용할 수 있다.
+  // 도메인이 등록된 JavaScript 키로 동작하는 Maps SDK로 대체한다. (apartment-register.html과 동일 키)
+  let _kakaoPs = null, _kakaoGeocoder = null;
+  function kakaoServices() {
+    if (!_kakaoPs && window.kakao?.maps?.services) {
+      _kakaoPs = new kakao.maps.services.Places();
+      _kakaoGeocoder = new kakao.maps.services.Geocoder();
+    }
+    return { ps: _kakaoPs, geocoder: _kakaoGeocoder };
+  }
+  // SDK는 콜백 기반 — 실패/무결과를 모두 빈 배열로 흡수해 기존 호출부의 예외 처리를 유지한다.
+  function kakaoSearch(run) {
+    return new Promise(resolve => {
+      try {
+        run((data, status) => resolve(status === kakao.maps.services.Status.OK ? (data || []) : []));
+      } catch (e) { resolve([]); }
+    });
+  }
   const COMMUTE_STATIONS = {
     gangnam: { label: '강남역',   lng: 127.027621, lat: 37.497942 },
     yeouido: { label: '여의도역',  lng: 126.924171, lat: 37.521574 },
@@ -890,12 +910,10 @@
   async function getAptLatLng() {
     if (apartment.lat && apartment.lng) return { lat: apartment.lat, lng: apartment.lng };
     try {
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(apartment.name)}&size=5`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      );
-      const data = await res.json();
-      const doc = (data.documents || []).find(p => p.category_name?.endsWith('아파트'));
+      const { ps } = kakaoServices();
+      if (!ps) return null;
+      const docs = await kakaoSearch(cb => ps.keywordSearch(apartment.name, cb, { size: 5 }));
+      const doc = docs.find(p => p.category_name?.endsWith('아파트'));
       if (!doc) return null;
       const lat = parseFloat(doc.y), lng = parseFloat(doc.x);
       apartment.lat = lat; apartment.lng = lng;
@@ -911,12 +929,10 @@
     try {
       const loc = await getAptLatLng();
       if (!loc) return apartment.lawdCd || null;
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${loc.lng}&y=${loc.lat}`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      );
-      const data = await res.json();
-      const bRegion = (data.documents || []).find(r => r.region_type === 'B');
+      const { geocoder } = kakaoServices();
+      if (!geocoder) return apartment.lawdCd || null;
+      const regions = await kakaoSearch(cb => geocoder.coord2RegionCode(loc.lng, loc.lat, cb));
+      const bRegion = regions.find(r => r.region_type === 'B');
       if (!bRegion?.code) return apartment.lawdCd || null;
       const lawdCd = bRegion.code.substring(0, 5);
       const bjdCode = bRegion.code;
@@ -945,12 +961,15 @@
     try {
       const loc = await getAptLatLng();
       if (!loc) return;
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SW8&x=${loc.lng}&y=${loc.lat}&radius=1500&sort=distance&size=1`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      );
-      const data = await res.json();
-      const station = data.documents?.[0];
+      const { ps } = kakaoServices();
+      if (!ps) return;
+      const docs = await kakaoSearch(cb => ps.categorySearch('SW8', cb, {
+        location: new kakao.maps.LatLng(loc.lat, loc.lng),
+        radius: 1500,
+        sort: kakao.maps.services.SortBy.DISTANCE,
+        size: 1
+      }));
+      const station = docs[0];
       if (!station) return;
       const dist = parseInt(station.distance);
       const updates = {
@@ -996,12 +1015,14 @@
     try {
       const loc = await getAptLatLng();
       if (!loc) return;
-      const res = await fetch(
-        `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=SC4&x=${loc.lng}&y=${loc.lat}&radius=1500&size=15`,
-        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }
-      );
-      const data = await res.json();
-      const school = (data.documents || []).find(p => p.place_name.includes('초등학교'));
+      const { ps } = kakaoServices();
+      if (!ps) return;
+      const docs = await kakaoSearch(cb => ps.categorySearch('SC4', cb, {
+        location: new kakao.maps.LatLng(loc.lat, loc.lng),
+        radius: 1500,
+        size: 15
+      }));
+      const school = docs.find(p => p.place_name.includes('초등학교'));
       if (!school) return;
       const updates = { schoolName: school.place_name };
       if (isGuest) guestDB.setInfo(aptId, updates);

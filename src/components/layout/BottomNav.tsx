@@ -4,6 +4,7 @@ import Icon, { type IconName } from '@/components/Icon'
 const ITEMS: { to: string; icon: IconName; label: string }[] = [
   { to: '/dashboard', icon: 'dashboard', label: '대시보드' },
   { to: '/compare',   icon: 'compare',   label: '비교' },
+  { to: '/ranking',   icon: 'ranking',   label: '순위' },
   { to: '/register',  icon: 'register',  label: '등록' },
   { to: '/profile',   icon: 'profile',   label: '프로필' },
 ]

@@ -9,6 +9,8 @@ import RegisterPage from '@/pages/RegisterPage'
 import ApartmentDetailPage from '@/pages/ApartmentDetailPage'
 import ProfilePage from '@/pages/ProfilePage'
 import ComparePage from '@/pages/ComparePage'
+import RankingPage from '@/pages/RankingPage'
+import ImportPage from '@/pages/ImportPage'
 import PrivacyPage from '@/pages/PrivacyPage'
 
 const queryClient = new QueryClient({
@@ -38,6 +40,8 @@ function AppRoutes() {
         <Route path="/apartments/:id" element={<ApartmentDetailPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/compare" element={<ComparePage />} />
+        <Route path="/ranking" element={<RankingPage />} />
+        <Route path="/import" element={<ImportPage />} />
       </Route>
     </Routes>
   )
