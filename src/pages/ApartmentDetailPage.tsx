@@ -10,7 +10,7 @@ import { useUIStore } from '@/store/uiStore'
 import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
-import { searchKeyword, searchCategory, searchAddress } from '@/lib/kakao'
+import { searchKeyword, searchCategory } from '@/lib/kakao'
 import type { Apartment, ApartmentDetail, ApartmentVisit, Memo, RealTxItem } from '@/types'
 import PriceSection from './detail/PriceSection'
 import InfoSection from './detail/InfoSection'
@@ -135,7 +135,6 @@ export default function ApartmentDetailPage() {
     if (!info.nearStation) tasks.push(autoFetchStation(apartment))
     if (!info.commuteGangnam) tasks.push(autoFetchCommute(apartment))
     if (!info.schoolName) tasks.push(autoFetchSchool(apartment))
-    if (!info.floorAreaRatio) tasks.push(autoFetchBuilding(apartment))
     if (tasks.length > 0) await Promise.allSettled(tasks)
   }
 
@@ -208,43 +207,6 @@ export default function ApartmentDetailPage() {
       const school = docs.find(p => p.place_name.includes('초등학교'))
       if (!school) return
       await saveInfo(apartment.id, { schoolName: school.place_name })
-    } catch { }
-  }
-
-  async function autoFetchBuilding(apartment: Apartment) {
-    if (!apartment.address) return
-    try {
-      // Step 1: geocode to get b_code
-      const addr = await searchAddress(apartment.address)
-      const bCode = addr?.b_code
-      if (!bCode) return
-
-      // Step 2: get kaptCode from AptListService2
-      const norm = (s: string) => s.replace(/[\s()（）]|아파트/g, '').toLowerCase()
-      const aptNorm = norm(apartment.name)
-      const listRes = await fetch(
-        `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(import.meta.env.VITE_MOLIT_KEY)}&bjdongCode=${bCode}&numOfRows=200&_type=json`
-      ).then(r => r.json())
-      let listItems = listRes.response?.body?.items?.item ?? []
-      if (!Array.isArray(listItems)) listItems = listItems ? [listItems] : []
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const match = (listItems as any[]).find((it: any) => {
-        const n = norm(it.kaptName ?? '')
-        return n === aptNorm || n.includes(aptNorm) || aptNorm.includes(n)
-      })
-      if (!match?.kaptCode) return
-
-      // Step 3: get 용적률/건폐율 from AptBasisInfoService
-      const infoRes = await fetch(
-        `https://apis.data.go.kr/1613000/AptBasisInfoService/getAprtInfo?serviceKey=${encodeURIComponent(import.meta.env.VITE_MOLIT_KEY)}&kaptCode=${match.kaptCode}&_type=json`
-      ).then(r => r.json())
-      const item = infoRes.response?.body?.items?.item
-      if (!item) return
-
-      const updates: Partial<ApartmentDetail> = {}
-      if (item.kaptdacnt) updates.floorAreaRatio = String(item.kaptdacnt)
-      if (item.kaptdaPt) updates.buildingCoverage = String(item.kaptdaPt)
-      if (Object.keys(updates).length) await saveInfo(apartment.id, updates)
     } catch { }
   }
 
@@ -388,7 +350,6 @@ export default function ApartmentDetailPage() {
           autoFetchStation(apt),
           autoFetchCommute(apt),
           autoFetchSchool(apt),
-          autoFetchBuilding(apt),
         ])}
       />
 

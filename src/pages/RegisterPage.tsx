@@ -100,7 +100,6 @@ export default function RegisterPage() {
     let lawdCd: string | null = null
     let lat: number | null = null
     let lng: number | null = null
-    let bCode = ''
 
     try {
       const addr = await geocodeAddress(address)
@@ -108,8 +107,7 @@ export default function RegisterPage() {
         region = `${addr.region_1depth_name} ${addr.region_2depth_name}`.trim()
         lat = parseFloat(addr.y)
         lng = parseFloat(addr.x)
-        bCode = addr.b_code || ''
-        lawdCd = bCode ? bCode.substring(0, 5) : null
+        lawdCd = addr.b_code ? addr.b_code.substring(0, 5) : null
       }
     } catch { /* geocoding 실패 시 기본값으로 진행 */ }
 
@@ -127,23 +125,21 @@ export default function RegisterPage() {
       return
     }
 
-    const [molit, units, commute] = await Promise.all([
+    const [molit, commute] = await Promise.all([
       fetchMOLIT(name, lawdCd),
-      fetchUnits(name, bCode),
       fetchCommute(lat, lng),
     ])
 
     const metaParts = [
       molit.completionYear && `${molit.completionYear}년 준공`,
       molit.maxFloor && `최고 ${molit.maxFloor}층`,
-      units && `${Number(units).toLocaleString()}세대`,
       commute.commuteGangnam && `강남역 ${commute.commuteGangnam}`,
       commute.commuteYeouido && `여의도역 ${commute.commuteYeouido}`,
       commute.commuteJongno && `종로3가역 ${commute.commuteJongno}`,
     ].filter(Boolean)
 
     setPreview({ name, address, meta: metaParts.join(' · ') })
-    setRegisterData({ ...base, ...molit, totalUnits: units, ...commute })
+    setRegisterData({ ...base, ...molit, ...commute })
     setLoadingPreview(false)
   }
 
@@ -259,6 +255,23 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {preview && (
+            <div className="mb-4">
+              <label className="form-label" htmlFor="totalUnits">세대수 (선택)</label>
+              <input
+                id="totalUnits"
+                type="number"
+                inputMode="numeric"
+                className="form-input"
+                placeholder="예: 1372"
+                value={registerData?.totalUnits ?? ''}
+                onChange={e => setRegisterData(prev => prev ? { ...prev, totalUnits: e.target.value || null } : prev)}
+              />
+              {/* 국토부 단지목록 API가 폐기돼 자동으로 못 채운다. 호갱노노 목록 붙여넣기로 넣으면 자동으로 들어온다. */}
+              <p className="form-hint">자동으로 못 채우는 값이에요. 아는 경우에만 적으면 됩니다.</p>
+            </div>
+          )}
+
           {error && (
             <p className="text-sm text-danger mb-3">{error}</p>
           )}
@@ -360,27 +373,3 @@ async function fetchMOLIT(aptName: string, lawdCd: string): Promise<{ completion
   return { completionYear, maxFloor }
 }
 
-async function fetchUnits(aptName: string, bCode: string): Promise<string | null> {
-  const normName = norm(aptName)
-  try {
-    const listData = await fetch(
-      `https://apis.data.go.kr/1613000/AptListService2/getAptList?serviceKey=${encodeURIComponent(MOLIT_KEY)}&bjdongCode=${bCode}&numOfRows=200&_type=json`
-    ).then(r => r.json())
-
-    let items = listData.response?.body?.items?.item ?? []
-    if (!Array.isArray(items)) items = items ? [items] : []
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const match = (items as any[]).find(it => {
-      const n = norm(it.kaptName ?? '')
-      return n === normName || n.includes(normName) || normName.includes(n)
-    })
-    if (!match?.kaptCode) return null
-
-    const infoData = await fetch(
-      `https://apis.data.go.kr/1613000/AptBasisInfoService/getAprtInfo?serviceKey=${encodeURIComponent(MOLIT_KEY)}&kaptCode=${match.kaptCode}&_type=json`
-    ).then(r => r.json())
-    return infoData.response?.body?.items?.item?.kaptHoCount ?? null
-  } catch {
-    return null
-  }
-}
