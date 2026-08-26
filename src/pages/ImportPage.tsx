@@ -9,7 +9,7 @@ import { guestDB } from '@/lib/guestDB'
 import { formatPrice } from '@/lib/utils'
 import { searchKeyword, searchAddress as geocodeAddress, pickAptPlace } from '@/lib/kakao'
 import { fetchCommute, type Commute } from '@/lib/commute'
-import { parsePaste, type ParsedRow } from '@/lib/parsePaste'
+import { parsePaste, decodeList, type ParsedRow } from '@/lib/parsePaste'
 
 interface Found {
   placeName: string
@@ -71,6 +71,15 @@ export default function ImportPage() {
     setPageTitle('여러 건 추가')
     return () => setPageTitle('내집마련 트래커')
   }, [setPageTitle])
+
+  // 링크에 목록이 실려 오면 그대로 채운다(#해시라 서버엔 남지 않는다).
+  useEffect(() => {
+    const carried = decodeList(window.location.hash)
+    if (!carried) return
+    setText(carried.text)
+    setRegion(carried.region)
+    window.history.replaceState(null, '', window.location.pathname)
+  }, [])
 
   const { rows, skipped } = useMemo(() => parsePaste(text), [text])
 

@@ -51,3 +51,11 @@ const dup = parsePaste(SAMPLE + '\n' + SAMPLE)
 assert.equal(dup.rows.length, 3)
 
 console.log('ok — rows', rows.length, 'skipped', skipped)
+
+// 링크 왕복 (한글 포함)
+import { encodeList, decodeList } from '../src/lib/parsePaste.ts'
+const round = decodeList('#' + encodeList(SAMPLE, '서울 강서구'))
+assert.equal(round.text, SAMPLE)
+assert.equal(round.region, '서울 강서구')
+assert.equal(decodeList('#쓰레기'), null)
+console.log('ok — 링크 왕복')

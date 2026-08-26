@@ -62,3 +62,22 @@ export function parsePaste(text: string): { rows: ParsedRow[]; skipped: number }
 
   return { rows, skipped }
 }
+
+// 붙여넣기 내용을 링크(#해시)에 실어 나른다. 해시는 서버로 가지 않으므로 서버에 남지 않는다.
+export function encodeList(text: string, region: string): string {
+  const json = JSON.stringify({ t: text, r: region })
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+export function decodeList(hash: string): { text: string; region: string } | null {
+  try {
+    const b64 = hash.replace(/^#/, '').replace(/-/g, '+').replace(/_/g, '/')
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4))
+    const json = new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)))
+    const o = JSON.parse(json)
+    return typeof o?.t === 'string' ? { text: o.t, region: typeof o.r === 'string' ? o.r : '' } : null
+  } catch {
+    return null
+  }
+}
