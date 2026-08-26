@@ -6,14 +6,9 @@ import { useAuthStore } from '@/store/authStore'
 import { useScenarioStore } from '@/store/scenarioStore'
 import { guestDB } from '@/lib/guestDB'
 import { searchKeyword, searchAddress as geocodeAddress, type KakaoPlace } from '@/lib/kakao'
+import { fetchCommute } from '@/lib/commute'
 
 const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
-const ODSAY_KEY = import.meta.env.VITE_ODSAY_KEY as string
-const STATIONS = {
-  gangnam: { name: '강남역', lng: 127.027621, lat: 37.497942 },
-  yeouido: { name: '여의도역', lng: 126.924171, lat: 37.521574 },
-  jongno: { name: '종로3가역', lng: 126.991854, lat: 37.571607 },
-} as const
 
 interface Suggestion {
   name: string
@@ -388,33 +383,4 @@ async function fetchUnits(aptName: string, bCode: string): Promise<string | null
   } catch {
     return null
   }
-}
-
-async function fetchCommute(fromLat: number, fromLng: number): Promise<{
-  commuteGangnam: string | null
-  commuteYeouido: string | null
-  commuteJongno: string | null
-}> {
-  const entries = await Promise.allSettled(
-    (Object.entries(STATIONS) as [keyof typeof STATIONS, typeof STATIONS[keyof typeof STATIONS]][]).map(
-      async ([key, station]) => {
-        const data = await fetch(
-          `https://api.odsay.com/v1/api/searchPubTransPathR?apiKey=${encodeURIComponent(ODSAY_KEY)}&SX=${fromLng}&SY=${fromLat}&EX=${station.lng}&EY=${station.lat}&SearchType=0`
-        ).then(r => r.json())
-        const mins = data.result?.path?.[0]?.info?.totalTime
-        return { key, time: mins != null ? `${mins}분` : null }
-      }
-    )
-  )
-
-  const result = { commuteGangnam: null as string | null, commuteYeouido: null as string | null, commuteJongno: null as string | null }
-  const keyMap: Record<keyof typeof STATIONS, keyof typeof result> = {
-    gangnam: 'commuteGangnam',
-    yeouido: 'commuteYeouido',
-    jongno: 'commuteJongno',
-  }
-  for (const r of entries) {
-    if (r.status === 'fulfilled') result[keyMap[r.value.key]] = r.value.time
-  }
-  return result
 }

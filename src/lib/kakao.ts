@@ -94,3 +94,23 @@ export async function searchAddress(query: string): Promise<KakaoAddress | null>
   const docs = await search<any>((s, cb) => new s.Geocoder().addressSearch(query, cb, { size: 1 }))
   return docs[0]?.address ?? null
 }
+
+// 목록 붙여넣기용: 단지명 검색 결과에서 실제 아파트 한 곳을 고른다.
+// 호갱노노 이름과 카카오 등록명이 자주 어긋나므로(도시개발공사2단지 ↔ 방화2단지도시개발공사)
+// 이름 일치를 요구하지 않고, "아파트 시설이면서 부속동이 아닌 것" 중 검색 상위를 쓴다.
+export function pickAptPlace(places: KakaoPlace[], name: string): KakaoPlace | null {
+  const norm = (s: string) => s.replace(/[\s()]/g, '').replace(/아파트$/, '')
+  const n = norm(name)
+
+  const candidates = places.filter(p =>
+    (p.category_name?.includes('아파트') || /아파트/.test(p.place_name)) &&
+    !/(상가|후문|정문|주차|경비|관리사무소|충전소|전기차|어린이집|경로당)/.test(p.place_name)
+  )
+  if (!candidates.length) return null
+
+  const named = candidates.find(p => {
+    const pn = norm(p.place_name)
+    return pn.includes(n) || n.includes(pn)
+  })
+  return named ?? candidates[0]
+}
