@@ -3,6 +3,7 @@ import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { guestDB } from '@/lib/guestDB'
 import { formatPrice, aptNameMatch } from '@/lib/utils'
+import { searchAddress as geocodeAddress, jibunOf } from '@/lib/kakao'
 import type { Apartment, RealTxItem } from '@/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,6 +25,13 @@ export default function PriceSection({ apt, isGuest, onAptChange }: Props) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => { fetchRealTx() }, [apt.id])
+
+  // 한 번 알아낸 지번·법정동은 다시 찾지 않도록 기억한다
+  function saveKeys(keys: Partial<Apartment>) {
+    onAptChange(prev => prev ? { ...prev, ...keys } : prev)
+    if (!isGuest) updateDoc(doc(db, 'apartments', apt.id), keys).catch(() => {})
+    else guestDB.updateApartment(apt.id, keys)
+  }
 
   async function fetchRealTx() {
     if (!apt.lawdCd) return
@@ -65,14 +73,31 @@ export default function PriceSection({ apt, isGuest, onAptChange }: Props) {
         candidates = match(flat)
       }
 
+      let umdNm = apt.umdNm
+      let jibun = apt.aptJibun
+
+      // 이름으로 못 찾는 단지가 있다. 국토부 등록명이 통째로 다른 경우
+      // (방화2단지도시개발공사 → "방화그린"). 지번은 바뀌지 않으므로 주소로 찾는다.
+      if (!candidates.length && apt.address && (!umdNm || !jibun)) {
+        const addr = await geocodeAddress(apt.address)
+        if (addr) {
+          umdNm = addr.region_3depth_name
+          jibun = jibunOf(addr)
+          saveKeys({ umdNm, aptJibun: jibun })
+        }
+      }
+      if (!candidates.length && umdNm && jibun) {
+        candidates = flat.filter(tx => String(tx.umdNm ?? '').trim() === umdNm && toJibun(tx.jibun) === jibun)
+      }
+
       let all: RealTxItem[] = []
       if (candidates.length) {
-        if (apt.aptJibun) {
-          // Use cached jibun, fall back to all candidates if empty
-          const byJibun = candidates.filter(tx => toJibun(tx.jibun) === apt.aptJibun)
+        if (jibun) {
+          // 이미 아는 지번으로 좁히되, 하나도 안 남으면 후보 전체를 쓴다
+          const byJibun = candidates.filter(tx => toJibun(tx.jibun) === jibun)
           all = byJibun.length > 0 ? byJibun : candidates
         } else {
-          // Discover dominant jibun and cache it
+          // 같은 이름의 다른 단지가 섞였을 수 있다. 지번 다수결로 진짜 단지를 고르고 기억해 둔다
           const jibunMap: Record<string, number> = {}
           candidates.forEach(tx => {
             const j = toJibun(tx.jibun)
@@ -80,9 +105,7 @@ export default function PriceSection({ apt, isGuest, onAptChange }: Props) {
           })
           const topJibun = Object.entries(jibunMap).sort((a, b) => b[1] - a[1])[0]?.[0]
           if (topJibun) {
-            onAptChange(prev => prev ? { ...prev, aptJibun: topJibun } : prev)
-            if (!isGuest) updateDoc(doc(db, 'apartments', apt.id), { aptJibun: topJibun }).catch(() => {})
-            else guestDB.updateApartment(apt.id, { aptJibun: topJibun })
+            saveKeys({ aptJibun: topJibun })
             all = candidates.filter(tx => toJibun(tx.jibun) === topJibun)
           } else {
             all = candidates

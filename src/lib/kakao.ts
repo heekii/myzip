@@ -27,6 +27,8 @@ export interface KakaoAddress {
   region_1depth_name: string
   region_2depth_name: string
   region_3depth_name: string
+  main_address_no: string
+  sub_address_no: string
   b_code: string
   x: string
   y: string
@@ -113,4 +115,9 @@ export function pickAptPlace(places: KakaoPlace[], name: string): KakaoPlace | n
     return pn.includes(n) || n.includes(pn)
   })
   return named ?? candidates[0]
+}
+
+/** 국토부 실거래 자료의 지번 표기("839", "351-89")로 맞춘다. */
+export function jibunOf(a: KakaoAddress): string {
+  return a.sub_address_no ? `${a.main_address_no}-${a.sub_address_no}` : a.main_address_no
 }
