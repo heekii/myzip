@@ -59,3 +59,15 @@ assert.equal(round.text, SAMPLE)
 assert.equal(round.region, '서울 강서구')
 assert.equal(decodeList('#쓰레기'), null)
 console.log('ok — 링크 왕복')
+
+// 국토부 등록명 ↔ 후보 이름 맞춤 (실제 강서구 데이터에서 확인한 사례)
+import { aptNameMatch, baseAptName } from '../src/lib/utils.ts'
+assert.equal(baseAptName('장미 24평'), '장미')
+assert.equal(aptNameMatch('장미', '장미 24평'), 'exact')                    // 평형 꼬리 제거
+assert.equal(aptNameMatch('마곡중앙하이츠아파트', '마곡중앙하이츠 20평'), 'exact')  // '아파트' 제거
+assert.equal(aptNameMatch('방화5', '방화5단지 16평'), 'loose')               // 국토부가 줄여 쓴 이름
+assert.equal(aptNameMatch('청솔', '방화3단지청솔 15평'), 'loose')
+assert.equal(aptNameMatch('중앙하이츠', '마곡중앙하이츠 20평'), 'loose')        // 다른 단지가 걸린다 → 지번 다수결이 거름
+assert.equal(aptNameMatch('방화그린', '장미 24평'), null)
+assert.equal(aptNameMatch('', '장미 24평'), null)
+console.log('ok — 단지명 맞춤')

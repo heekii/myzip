@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { guestDB } from '@/lib/guestDB'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, aptNameMatch } from '@/lib/utils'
 import type { Apartment, RealTxItem } from '@/types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -10,7 +10,6 @@ declare const Chart: any
 
 const MOLIT_KEY = import.meta.env.VITE_MOLIT_KEY as string
 
-const normalize = (s: string) => s.replace(/[\s()（）]|아파트/g, '').toLowerCase()
 const toJibun = (v: unknown) => (v != null ? String(v).trim() : '')
 
 interface Props {
@@ -31,34 +30,39 @@ export default function PriceSection({ apt, isGuest, onAptChange }: Props) {
     setLoading(true)
     try {
       const now = new Date()
-      const months = Array.from({ length: 6 }, (_, i) => {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-        return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
-      })
-
-      const results = await Promise.all(
-        months.map(ym =>
-          fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_KEY)}&LAWD_CD=${apt.lawdCd}&DEAL_YMD=${ym}&numOfRows=1000&_type=json`)
-            .then(r => r.json())
-            .then(r => {
-              let items = r.response?.body?.items?.item ?? []
-              if (!Array.isArray(items)) items = items ? [items] : []
-              return items as RealTxItem[]
-            })
-            .catch(() => [] as RealTxItem[])
-        )
-      )
-
-      const flat = results.flat()
-      const aptNorm = normalize(apt.name)
-
-      // Name matching: exact → partial
-      let candidates = flat.filter(tx => normalize(tx.aptNm ?? '') === aptNorm)
-      if (!candidates.length) {
-        candidates = flat.filter(tx => {
-          const n = normalize(tx.aptNm ?? '')
-          return (n.includes(aptNorm) && aptNorm.length >= 4) || (aptNorm.includes(n) && n.length >= 4)
+      const monthsFrom = (start: number, count: number) =>
+        Array.from({ length: count }, (_, i) => {
+          const d = new Date(now.getFullYear(), now.getMonth() - start - i, 1)
+          return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
         })
+
+      const fetchMonths = async (months: string[]) => {
+        const results = await Promise.all(
+          months.map(ym =>
+            fetch(`https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${encodeURIComponent(MOLIT_KEY)}&LAWD_CD=${apt.lawdCd}&DEAL_YMD=${ym}&numOfRows=1000&_type=json`)
+              .then(r => r.json())
+              .then(r => {
+                let items = r.response?.body?.items?.item ?? []
+                if (!Array.isArray(items)) items = items ? [items] : []
+                return items as RealTxItem[]
+              })
+              .catch(() => [] as RealTxItem[])
+          )
+        )
+        return results.flat()
+      }
+
+      const match = (flat: RealTxItem[]) => {
+        const exact = flat.filter(tx => aptNameMatch(tx.aptNm ?? '', apt.name) === 'exact')
+        return exact.length ? exact : flat.filter(tx => aptNameMatch(tx.aptNm ?? '', apt.name) === 'loose')
+      }
+
+      let flat = await fetchMonths(monthsFrom(0, 6))
+      let candidates = match(flat)
+      // 신축 입주장처럼 거래가 한때 몰렸다 끊긴 단지는 6개월로는 한 건도 안 잡힌다.
+      if (!candidates.length) {
+        flat = flat.concat(await fetchMonths(monthsFrom(6, 12)))
+        candidates = match(flat)
       }
 
       let all: RealTxItem[] = []
